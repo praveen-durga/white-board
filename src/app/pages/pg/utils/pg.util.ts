@@ -203,7 +203,7 @@ export function buildDefaultPgDetails(now: Date): BirthDetails {
   );
 
   return {
-    name: 'PG',
+    name: 'Today',
     dob: `${parts['year']}-${parts['month']}-${parts['day']}`,
     tob: `${parts['hour']}:${parts['minute']}:${parts['second']}`,
     cityLabel,
