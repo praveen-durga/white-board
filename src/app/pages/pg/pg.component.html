@@ -1,0 +1,136 @@
+<h1>PG</h1>
+
+<section class="query">
+  <app-birth-details-form #pgForm formId="pg-details" [initialDetails]="formDetails()" (submitted)="onShowChart()" />
+</section>
+
+<div class="actions">
+  <app-button (click)="onShowChart()">Show Chart</app-button>
+</div>
+
+@if (displayChart(); as chart) {
+  <section class="chart-section">
+    <div class="palette" role="toolbar" aria-label="Drawing tools">
+      <div class="tools">
+        @for (item of tools; track item.value) {
+          <button type="button" [class.active]="tool() === item.value" (click)="tool.set(item.value)">
+            {{ item.label }}
+          </button>
+        }
+      </div>
+
+      <label class="field">
+        Colour
+        <input type="color" [ngModel]="color()" (ngModelChange)="color.set($event)" />
+      </label>
+
+      <label class="field">
+        Width
+        <select [ngModel]="width()" (ngModelChange)="width.set(+$event)">
+          @for (option of widths; track option) {
+            <option [value]="option">{{ option }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="field">
+        <input type="checkbox" [ngModel]="inkToShape()" (ngModelChange)="inkToShape.set($event)" />
+        Ink to shape
+      </label>
+
+      @if (isWriteSupported) {
+        <label class="field">
+          Write in
+          <select [ngModel]="writeLanguage()" (ngModelChange)="writeLanguage.set($event)">
+            @for (option of languages; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </select>
+        </label>
+      }
+
+      <label class="field">
+        <input type="checkbox" [ngModel]="showPlanets()" (ngModelChange)="onTogglePlanets($event)" />
+        Show planets
+      </label>
+
+      <label class="field">
+        Lagna
+        <select [ngModel]="lagnaKey()" (ngModelChange)="lagnaKey.set($event)">
+          <option [value]="lagnaActual">Actual Asc</option>
+          <optgroup label="Sign">
+            @for (option of signOptions; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </optgroup>
+          <optgroup label="Planet">
+            @for (option of grahaOptions; track option.value) {
+              <option [value]="option.value">{{ option.label }}</option>
+            }
+          </optgroup>
+        </select>
+        <button type="button" class="reset" [disabled]="lagnaKey() === lagnaActual" (click)="lagnaKey.set(lagnaActual)">
+          Reset
+        </button>
+      </label>
+
+      <div class="tools">
+        <button type="button" [disabled]="!canUndo()" (click)="onUndo()">Undo</button>
+        <button type="button" [disabled]="!canRedo()" (click)="onRedo()">Redo</button>
+        <button type="button" class="danger" [disabled]="shapes().length === 0" (click)="onClearAll()">
+          Clear all
+        </button>
+      </div>
+    </div>
+
+    <p class="aspect-summary">{{ aspectSummary() || 'Hover over a planet to see its aspects.' }}</p>
+
+    <div class="charts">
+      <div class="chart-item">
+        <h2>North Indian</h2>
+        <app-pg-drawing-board
+          chartStyle="north"
+          [chart]="chart"
+          [shapes]="shapes()"
+          [tool]="tool()"
+          [color]="color()"
+          [width]="width()"
+          (shapeAdded)="onShapeAdded($event)"
+          (shapeErased)="onShapeErased($event)"
+          [inkToShape]="inkToShape()"
+          [writeLanguage]="writeLanguage()"
+          [hoveredGraha]="hoveredGraha()"
+          (grahaHovered)="hoveredGraha.set($event)"
+        />
+      </div>
+
+      <div class="chart-item">
+        <h2>South Indian</h2>
+        <app-pg-drawing-board
+          chartStyle="south"
+          [chart]="chart"
+          [shapes]="shapes()"
+          [tool]="tool()"
+          [color]="color()"
+          [width]="width()"
+          (shapeAdded)="onShapeAdded($event)"
+          (shapeErased)="onShapeErased($event)"
+          [inkToShape]="inkToShape()"
+          [writeLanguage]="writeLanguage()"
+          [hoveredGraha]="hoveredGraha()"
+          (grahaHovered)="hoveredGraha.set($event)"
+        />
+      </div>
+    </div>
+
+    <p class="note">
+      Drawings follow the sign: whatever you draw in a sign’s house appears in the same sign on the other chart. Use
+      Eraser and click a drawing to remove it. Hover over a planet to see its Parashari aspects on both charts.
+    </p>
+  </section>
+}
+
+<section class="whiteboard">
+  <h2>Whiteboard</h2>
+  <app-pg-whiteboard (snapshotRequested)="onSnapshotRequested($event)" />
+</section>

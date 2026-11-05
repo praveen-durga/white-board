@@ -1,0 +1,161 @@
+@reference 'tailwindcss';
+
+:host {
+  @apply contents;
+}
+
+.button {
+  @apply inline-flex gap-2 items-center justify-center rounded-sm border border-transparent font-semibold transition-colors;
+
+  &:hover {
+    @apply cursor-pointer;
+  }
+
+  &:focus,
+  &:focus-visible {
+    @apply outline-none ring-1 ring-current;
+  }
+
+  &:disabled {
+    @apply pointer-events-none opacity-50;
+  }
+
+  /* Size variants */
+  &.sm {
+    @apply min-h-6 p-2 text-xs;
+  }
+
+  &.reg {
+    @apply min-h-7 p-2 text-sm;
+  }
+
+  &.md {
+    @apply min-h-8 px-4 py-2.5 text-sm;
+  }
+
+  &.lg {
+    @apply min-h-10 px-8 py-3 text-lg;
+  }
+
+  /* danger/dangerOutline always render as Dracula error, regardless of color prop */
+  &.danger {
+    background: var(--color-error);
+    color: var(--color-error-content);
+    border-color: var(--color-error);
+
+    &:hover {
+      filter: brightness(0.9);
+    }
+
+    &:focus,
+    &:focus-visible {
+      --tw-ring-color: var(--color-error);
+    }
+  }
+
+  &.dangerOutline {
+    @apply bg-transparent;
+    color: var(--color-error);
+    border-color: var(--color-error);
+
+    &:hover {
+      background: color-mix(in oklch, var(--color-error) 15%, transparent);
+    }
+  }
+
+  &.ghost {
+    @apply bg-transparent border-transparent;
+    color: var(--color-neutral-content);
+
+    &:hover {
+      background: var(--color-neutral);
+    }
+  }
+
+  /* for use on a primary-colored surface (e.g. the header) where primaryOutline would be invisible */
+  &.primaryInvertedOutline {
+    @apply bg-transparent;
+    color: var(--color-primary-content);
+    border-color: var(--color-primary-content);
+
+    &:hover {
+      background: color-mix(in oklch, var(--color-primary-content) 15%, transparent);
+    }
+
+    &:focus,
+    &:focus-visible {
+      --tw-ring-color: var(--color-primary-content);
+    }
+  }
+
+  /* color: blue -> Dracula primary, red -> Dracula error (applies to primary/primaryOutline/ghost) */
+  &.blue {
+    &.primary {
+      background: var(--color-primary);
+      color: var(--color-primary-content);
+      border-color: var(--color-primary);
+
+      &:hover {
+        filter: brightness(0.9);
+      }
+
+      &:focus,
+      &:focus-visible {
+        --tw-ring-color: var(--color-primary);
+      }
+    }
+
+    &.primaryOutline {
+      @apply bg-transparent;
+      color: var(--color-primary);
+      border-color: var(--color-primary);
+
+      &:hover {
+        background: color-mix(in oklch, var(--color-primary) 15%, transparent);
+      }
+    }
+
+    &.ghost {
+      color: var(--color-primary);
+
+      &:hover {
+        background: color-mix(in oklch, var(--color-primary) 15%, transparent);
+      }
+    }
+  }
+
+  &.red {
+    &.primary {
+      background: var(--color-error);
+      color: var(--color-error-content);
+      border-color: var(--color-error);
+
+      &:hover {
+        filter: brightness(0.9);
+      }
+
+      &:focus,
+      &:focus-visible {
+        --tw-ring-color: var(--color-error);
+      }
+    }
+
+    &.primaryOutline {
+      @apply bg-transparent;
+      color: var(--color-error);
+      border-color: var(--color-error);
+
+      &:hover {
+        background: color-mix(in oklch, var(--color-error) 15%, transparent);
+      }
+    }
+
+    &.ghost {
+      color: var(--color-error);
+
+      &:hover {
+        background: color-mix(in oklch, var(--color-error) 15%, transparent);
+      }
+    }
+  }
+}

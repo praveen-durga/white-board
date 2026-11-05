@@ -1,0 +1,19 @@
+@use 'styles/variables';
+@use 'tailwindcss';
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-base-100);
+  color: var(--color-base-content);
+}

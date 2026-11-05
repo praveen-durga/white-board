@@ -1,0 +1,27 @@
+<div class="root">
+  @if (label()) {
+    <label class="label" [for]="inputId">{{ label() }}</label>
+  }
+
+  <input
+    class="input"
+    [class.error]="!!error()"
+    [id]="inputId"
+    [type]="type()"
+    [placeholder]="placeholder()"
+    [attr.list]="list()"
+    [attr.step]="step()"
+    [disabled]="disabled()"
+    [value]="value()"
+    (input)="onInput($event)"
+    (blur)="onBlur()"
+  />
+
+  @if (hint() && !error()) {
+    <p class="hint">{{ hint() }}</p>
+  }
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+</div>

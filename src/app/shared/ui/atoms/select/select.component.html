@@ -1,0 +1,31 @@
+<div class="root">
+  @if (label()) {
+    <label class="label" [for]="selectId">{{ label() }}</label>
+  }
+
+  <select
+    class="select"
+    [class.error]="!!error()"
+    [id]="selectId"
+    [disabled]="disabled()"
+    [value]="value()"
+    (change)="onChangeEvent($event)"
+    (blur)="onBlur()"
+  >
+    @if (placeholder()) {
+      <option value="" disabled hidden [selected]="!value()">{{ placeholder() }}</option>
+    }
+
+    @for (option of options(); track option.value) {
+      <option [value]="option.value" [selected]="option.value === value()">{{ option.label }}</option>
+    }
+  </select>
+
+  @if (hint() && !error()) {
+    <p class="hint">{{ hint() }}</p>
+  }
+
+  @if (error()) {
+    <p class="error-text">{{ error() }}</p>
+  }
+</div>

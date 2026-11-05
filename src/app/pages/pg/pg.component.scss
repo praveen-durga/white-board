@@ -1,0 +1,87 @@
+@reference 'tailwindcss';
+
+:host {
+  @apply block py-6;
+
+  h1 {
+    @apply text-xl font-semibold mb-4;
+    color: var(--color-base-content);
+  }
+
+  h2 {
+    @apply text-center font-semibold mb-2;
+  }
+
+  .query {
+    @apply flex flex-col gap-3 p-4 rounded-lg;
+    border: 1px solid var(--color-base-300);
+    background: var(--color-base-100);
+  }
+
+  .actions {
+    @apply flex justify-center my-6;
+  }
+
+  .palette {
+    @apply sticky top-0 z-10 flex flex-wrap items-center gap-4 p-3 mb-4 rounded-lg;
+    border: 1px solid var(--color-base-300);
+    background: var(--color-base-100);
+    font-size: var(--font-size-sm);
+  }
+
+  .tools {
+    @apply flex flex-wrap gap-1;
+
+    button {
+      @apply px-3 py-1 rounded;
+      border: 1px solid var(--color-base-300);
+
+      &.active {
+        color: var(--color-primary-content);
+        background: var(--color-primary);
+      }
+
+      &.danger {
+        color: var(--color-error);
+      }
+
+      &:disabled {
+        @apply opacity-40 cursor-not-allowed;
+      }
+    }
+  }
+
+  .field {
+    @apply inline-flex items-center gap-2;
+
+    select,
+    .reset {
+      @apply px-2 py-1 rounded;
+      border: 1px solid var(--color-base-300);
+    }
+
+    .reset:disabled {
+      @apply opacity-40 cursor-not-allowed;
+    }
+  }
+
+  .aspect-summary {
+    @apply mb-3 min-h-5;
+    font-size: var(--font-size-sm);
+  }
+
+  .charts {
+    @apply grid gap-6;
+    grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+  }
+
+  .whiteboard {
+    @apply mt-8;
+  }
+
+  .note {
+    @apply mt-4;
+    font-size: var(--font-size-sm);
+    color: color-mix(in oklch, var(--color-base-content) 65%, transparent);
+  }
+}

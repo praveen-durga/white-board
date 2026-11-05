@@ -1,0 +1,70 @@
+@reference 'tailwindcss';
+
+:host {
+  @apply block;
+}
+
+.board-wrap {
+  @apply relative;
+}
+
+.board {
+  @apply absolute inset-0 w-full h-full;
+  cursor: crosshair;
+  touch-action: none;
+
+  path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .hit {
+    stroke: transparent;
+    stroke-width: 12;
+  }
+
+  .draft {
+    opacity: 0.7;
+  }
+
+  .shape-text {
+    user-select: none;
+  }
+
+  .aspect-source {
+    fill: color-mix(in oklch, var(--color-warning) 22%, transparent);
+    pointer-events: none;
+  }
+
+  .aspect {
+    pointer-events: none;
+  }
+
+  .aspect-cell {
+    fill: color-mix(in oklch, var(--color-info) 18%, transparent);
+  }
+
+  .aspect-line {
+    stroke: var(--color-info);
+    stroke-width: 1.5;
+  }
+
+  .aspect-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-anchor: middle;
+    fill: var(--color-info);
+    paint-order: stroke;
+    stroke: var(--color-base-100);
+    stroke-width: 3px;
+  }
+
+  &.eraser {
+    cursor: pointer;
+
+    .shape:hover {
+      opacity: 0.4;
+    }
+  }
+}

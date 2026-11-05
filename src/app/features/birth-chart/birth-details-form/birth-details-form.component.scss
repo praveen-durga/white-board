@@ -1,0 +1,9 @@
+@reference 'tailwindcss';
+
+:host {
+  @apply contents;
+}
+
+.birth-details-form {
+  @apply flex flex-col gap-3;
+}

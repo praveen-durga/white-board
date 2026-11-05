@@ -1,0 +1,73 @@
+<div #wrap class="board-wrap">
+  <app-rasi-chart [chartData]="chart()" [styleOverride]="chartStyle()" [showDegrees]="false" />
+
+  <svg
+    #board
+    class="board"
+    [class.eraser]="isEraser()"
+    viewBox="0 0 400 400"
+    preserveAspectRatio="xMidYMin meet"
+    xmlns="http://www.w3.org/2000/svg"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp()"
+    (pointercancel)="onPointerUp()"
+    (pointerleave)="onPointerLeave()"
+  >
+    @if (sourceCell()) {
+      <polygon class="aspect-source" [attr.points]="sourceCell()" />
+    }
+
+    @for (aspect of renderedAspects(); track aspect.aspect) {
+      <g class="aspect">
+        <polygon class="aspect-cell" [attr.points]="aspect.cell" />
+        <path class="aspect-line" [attr.d]="aspect.path" />
+        @if (aspect.arrowHead) {
+          <path class="aspect-line" [attr.d]="aspect.arrowHead" />
+        }
+        <text class="aspect-label" [attr.x]="aspect.label.x" [attr.y]="aspect.label.y">{{ aspect.aspect }}</text>
+      </g>
+    }
+
+    @for (shape of renderedShapes(); track shape.id) {
+      <g class="shape" (click)="onShapeClick(shape.id)">
+        @if (shape.text) {
+          <text
+            class="shape-text"
+            [attr.x]="shape.text.x"
+            [attr.y]="shape.text.y"
+            [attr.fill]="shape.color"
+            [attr.font-size]="10 + shape.width * 2"
+          >
+            {{ shape.text.value }}
+          </text>
+        } @else {
+          <path class="hit" [attr.d]="shape.path" />
+          <path
+            [attr.d]="shape.path"
+            [attr.stroke]="shape.color"
+            [attr.stroke-width]="shape.width"
+            [attr.stroke-dasharray]="shape.isDotted ? shape.width + ' ' + shape.width * 2.5 : null"
+          />
+          @if (shape.arrowHead) {
+            <path [attr.d]="shape.arrowHead" [attr.stroke]="shape.color" [attr.stroke-width]="shape.width" />
+          }
+        }
+      </g>
+    }
+
+    @for (path of writingPaths(); track $index) {
+      <path class="draft" [attr.d]="path" [attr.stroke]="color()" [attr.stroke-width]="width()" />
+    }
+
+    @if (draftPath()) {
+      <path
+        class="draft"
+        [attr.d]="draftPath()"
+        [attr.stroke]="color()"
+        [attr.stroke-width]="width()"
+        [attr.stroke-dasharray]="tool() === 'dotted' ? width() + ' ' + width() * 2.5 : null"
+      />
+    }
+  </svg>
+</div>

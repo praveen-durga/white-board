@@ -1,0 +1,51 @@
+@reference 'tailwindcss';
+
+:host {
+  @apply block w-full;
+}
+
+.chart {
+  @apply w-full h-auto;
+
+  .border {
+    fill: var(--color-base-100);
+    stroke: var(--color-primary);
+    stroke-width: 2;
+  }
+
+  .outer-border {
+    fill: none;
+    stroke: color-mix(in oklab, var(--color-primary) 40%, transparent);
+    stroke-width: 1;
+  }
+
+  .grid-line {
+    fill: none;
+    stroke: color-mix(in oklab, var(--color-base-content) 30%, transparent);
+    stroke-width: 1;
+  }
+
+  .rasi-number {
+    @apply text-xs;
+    fill: color-mix(in oklab, var(--color-base-content) 60%, transparent);
+    text-anchor: middle;
+  }
+
+  .graha-label {
+    @apply text-xs font-semibold;
+    fill: var(--color-base-content);
+
+    &.overlay {
+      fill: var(--color-secondary);
+    }
+
+    .combust-marker {
+      font-size: 0.7em;
+    }
+  }
+
+  .outer-graha-label {
+    @apply text-[10px] font-semibold;
+    fill: var(--color-primary);
+  }
+}

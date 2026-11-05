@@ -1,0 +1,37 @@
+<form [formGroup]="form" [id]="formId()" class="birth-details-form" (ngSubmit)="onSubmit()">
+  <app-input label="Name" placeholder="Full name" formControlName="name" [error]="nameError()" />
+  <div class="flex flex-col gap-2 sm:flex-row">
+    <app-input label="Date of Birth" type="date" formControlName="dob" [error]="dobError()" />
+    <app-input label="Time of Birth" type="time" step="1" formControlName="tob" [error]="tobError()" />
+  </div>
+
+  <div class="flex flex-col gap-2 sm:flex-row">
+    <app-input
+      label="Place of Birth"
+      placeholder="Start typing a city"
+      formControlName="cityLabel"
+      [list]="cityOptionsId()"
+      (input)="onCityLabelSelect($event)"
+      [error]="cityLabelError()"
+    />
+    <app-select
+      label="Timezone"
+      placeholder="Select a timezone"
+      formControlName="timezone"
+      [options]="timezoneOptions"
+      [error]="timezoneError()"
+    />
+  </div>
+  <datalist [id]="cityOptionsId()">
+    @for (city of cityOptions; track city) {
+      <option [value]="city"></option>
+    }
+  </datalist>
+
+  <div class="flex flex-col gap-2 sm:flex-row">
+    <app-input label="Latitude" type="number" step="any" formControlName="lat" [error]="latError()" />
+    <app-input label="Longitude" type="number" step="any" formControlName="lng" [error]="lngError()" />
+  </div>
+
+  <app-select label="Ayanamsa" formControlName="ayanamsa" [options]="ayanamsaOptions" />
+</form>

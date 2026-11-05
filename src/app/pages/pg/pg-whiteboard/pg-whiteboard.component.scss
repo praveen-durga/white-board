@@ -1,0 +1,120 @@
+@reference 'tailwindcss';
+
+:host {
+  @apply block;
+}
+
+.palette {
+  @apply sticky top-0 z-10 flex flex-wrap items-center gap-4 p-3 mb-4 rounded-lg;
+  border: 1px solid var(--color-base-300);
+  background: var(--color-base-100);
+  font-size: var(--font-size-sm);
+}
+
+.tools {
+  @apply flex flex-wrap gap-1;
+
+  button {
+    @apply px-3 py-1 rounded;
+    border: 1px solid var(--color-base-300);
+
+    &.active {
+      color: var(--color-primary-content);
+      background: var(--color-primary);
+    }
+
+    &.danger {
+      color: var(--color-error);
+    }
+
+    &:disabled {
+      @apply opacity-40 cursor-not-allowed;
+    }
+  }
+}
+
+.field {
+  @apply inline-flex items-center gap-2;
+
+  select,
+  input[type='number'] {
+    @apply px-2 py-1 rounded;
+    border: 1px solid var(--color-base-300);
+  }
+
+  input[type='number'] {
+    @apply w-20;
+  }
+}
+
+.viewport {
+  @apply overflow-x-auto;
+}
+
+.board {
+  @apply block rounded-lg;
+  border: 1px solid var(--color-base-300);
+  cursor: crosshair;
+  touch-action: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-primary);
+  }
+
+  .background {
+    fill: var(--color-base-100);
+  }
+
+  path {
+    fill: none;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .hit {
+    stroke: transparent;
+    stroke-width: 12;
+  }
+
+  .draft {
+    opacity: 0.7;
+  }
+
+  .item-text {
+    font-family: sans-serif;
+    user-select: none;
+  }
+
+  .selection {
+    fill: none;
+    stroke: var(--color-primary);
+    stroke-dasharray: 6 4;
+  }
+
+  .handle {
+    fill: var(--color-primary);
+    cursor: nwse-resize;
+  }
+
+  &.select {
+    cursor: default;
+
+    .item {
+      cursor: move;
+    }
+  }
+
+  &.eraser {
+    cursor: pointer;
+
+    .item:hover {
+      opacity: 0.4;
+    }
+  }
+}
+
+.note {
+  @apply mt-2;
+  font-size: var(--font-size-sm);
+  color: color-mix(in oklch, var(--color-base-content) 65%, transparent);
+}

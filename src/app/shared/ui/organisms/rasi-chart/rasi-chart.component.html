@@ -1,0 +1,41 @@
+<svg
+  class="chart"
+  [attr.viewBox]="hasOuterChart() ? '-100 -100 600 600' : '0 0 400 400'"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  @if (hasOuterChart()) {
+    <rect class="outer-border" x="-99" y="-99" width="598" height="598" rx="8" />
+  }
+
+  <rect class="border" x="1" y="1" width="398" height="398" rx="8" />
+
+  @if (chartStyle() === 'south') {
+    <line class="grid-line" x1="100" y1="0" x2="100" y2="400" />
+    <line class="grid-line" x1="200" y1="0" x2="200" y2="100" />
+    <line class="grid-line" x1="200" y1="300" x2="200" y2="400" />
+    <line class="grid-line" x1="300" y1="0" x2="300" y2="400" />
+    <line class="grid-line" x1="0" y1="100" x2="400" y2="100" />
+    <line class="grid-line" x1="0" y1="200" x2="100" y2="200" />
+    <line class="grid-line" x1="300" y1="200" x2="400" y2="200" />
+    <line class="grid-line" x1="0" y1="300" x2="400" y2="300" />
+  } @else {
+    <line class="grid-line" x1="0" y1="0" x2="400" y2="400" />
+    <line class="grid-line" x1="400" y1="0" x2="0" y2="400" />
+    <polygon class="grid-line diamond" points="200,0 400,200 200,400 0,200" />
+  }
+
+  @for (region of regions(); track $index) {
+    <text class="rasi-number" [attr.x]="region.rasiLabelX" [attr.y]="region.rasiLabelY">{{ region.rasi }}</text>
+
+    @for (label of region.grahaLabels; track $index) {
+      <!-- prettier-ignore -->
+      <text class="graha-label" [class.overlay]="label.isOverlay" [attr.data-graha]="label.graha ?? null" [attr.x]="label.x" [attr.y]="label.y" [attr.text-anchor]="region.grahaTextAnchor">{{ label.baseText }}@if (label.isCombust) {<tspan class="combust-marker" dy="-0.4em">*</tspan>}<tspan [attr.dy]="label.isCombust ? '0.4em' : null">{{ label.degreeSuffix }}</tspan></text>
+    }
+
+    @for (line of region.outerLines; track $index) {
+      <text class="outer-graha-label" [attr.x]="line.x" [attr.y]="line.y" [attr.text-anchor]="region.outerTextAnchor">
+        {{ line.text }}
+      </text>
+    }
+  }
+</svg>

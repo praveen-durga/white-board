@@ -1,0 +1,166 @@
+<div #palette class="palette" role="toolbar" aria-label="Whiteboard tools">
+  <div class="tools">
+    @for (item of tools; track item.value) {
+      <button type="button" [class.active]="tool() === item.value" (click)="tool.set(item.value)">
+        {{ item.label }}
+      </button>
+    }
+  </div>
+
+  <label class="field">
+    Colour
+    <input type="color" [ngModel]="color()" (ngModelChange)="color.set($event)" />
+  </label>
+
+  <label class="field">
+    Width
+    <select [ngModel]="width()" (ngModelChange)="width.set(+$event)">
+      @for (option of widths; track option) {
+        <option [value]="option">{{ option }}</option>
+      }
+    </select>
+  </label>
+
+  <label class="field">
+    <input type="checkbox" [ngModel]="inkToShape()" (ngModelChange)="inkToShape.set($event)" />
+    Ink to shape
+  </label>
+
+  @if (isWriteSupported) {
+    <label class="field">
+      Write in
+      <select [ngModel]="writeLanguage()" (ngModelChange)="writeLanguage.set($event)">
+        @for (option of languages; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+  }
+
+  <label class="field">
+    Board
+    <input
+      type="number"
+      [min]="minBoard"
+      [step]="sizeStep"
+      [value]="boardWidth()"
+      (change)="onBoardSizeChange($event, 'width')"
+      aria-label="Board width"
+    />
+    ×
+    <input
+      type="number"
+      [min]="minBoard"
+      [step]="sizeStep"
+      [value]="boardHeight()"
+      (change)="onBoardSizeChange($event, 'height')"
+      aria-label="Board height"
+    />
+  </label>
+
+  <div class="tools">
+    <button type="button" (click)="snapshotRequested.emit('north')">Add North chart</button>
+    <button type="button" (click)="snapshotRequested.emit('south')">Add South chart</button>
+  </div>
+
+  <div class="tools">
+    <button type="button" [disabled]="!canUndo()" (click)="onUndo()">Undo</button>
+    <button type="button" [disabled]="!canRedo()" (click)="onRedo()">Redo</button>
+    <button type="button" [disabled]="!selection()" (click)="onDeleteSelected()">Delete</button>
+    <button type="button" class="danger" [disabled]="items().length === 0" (click)="onClearAll()">Clear all</button>
+    <button type="button" (click)="onExport()">Export PNG</button>
+  </div>
+</div>
+
+<div #viewport class="viewport">
+  <svg
+    #board
+    class="board"
+    [class.select]="tool() === 'select'"
+    [class.eraser]="isEraser()"
+    tabindex="0"
+    [attr.width]="boardWidth()"
+    [attr.height]="boardHeight()"
+    [attr.viewBox]="'0 0 ' + boardWidth() + ' ' + boardHeight()"
+    xmlns="http://www.w3.org/2000/svg"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp()"
+    (pointercancel)="onPointerUp()"
+    (keydown)="onKeyDown($event)"
+    (dragover)="onDragOver($event)"
+    (drop)="onDrop($event)"
+  >
+    <rect class="background" [attr.width]="boardWidth()" [attr.height]="boardHeight()" />
+
+    @for (entry of renderedItems(); track entry.item.id) {
+      <g class="item" [attr.data-item]="entry.item.id">
+        @if (entry.item.kind === 'image') {
+          <image
+            [attr.href]="entry.item.href"
+            [attr.x]="entry.item.box.x"
+            [attr.y]="entry.item.box.y"
+            [attr.width]="entry.item.box.width"
+            [attr.height]="entry.item.box.height"
+            preserveAspectRatio="none"
+          />
+        } @else if (entry.item.kind === 'text') {
+          <text
+            class="item-text"
+            [attr.x]="entry.item.point.x"
+            [attr.y]="entry.item.point.y"
+            [attr.fill]="entry.item.color"
+            [attr.font-size]="entry.item.size"
+          >
+            {{ entry.item.value }}
+          </text>
+        } @else {
+          <path class="hit" [attr.d]="entry.path" />
+          <path
+            [attr.d]="entry.path"
+            [attr.stroke]="entry.item.color"
+            [attr.stroke-width]="entry.item.width"
+            [attr.stroke-dasharray]="entry.isDotted ? entry.item.width + ' ' + entry.item.width * 2.5 : null"
+          />
+          @if (entry.arrowHead) {
+            <path [attr.d]="entry.arrowHead" [attr.stroke]="entry.item.color" [attr.stroke-width]="entry.item.width" />
+          }
+        }
+      </g>
+    }
+
+    @for (path of writingPaths(); track $index) {
+      <path class="draft" [attr.d]="path" [attr.stroke]="color()" [attr.stroke-width]="width()" />
+    }
+
+    @if (draftPath()) {
+      <path
+        class="draft"
+        [attr.d]="draftPath()"
+        [attr.stroke]="color()"
+        [attr.stroke-width]="width()"
+        [attr.stroke-dasharray]="tool() === 'dotted' ? width() + ' ' + width() * 2.5 : null"
+      />
+    }
+
+    @if (selection(); as box) {
+      <g class="wb-ui">
+        <rect class="selection" [attr.x]="box.x" [attr.y]="box.y" [attr.width]="box.width" [attr.height]="box.height" />
+        <rect
+          class="handle"
+          data-handle
+          [attr.x]="box.x + box.width - handleSize / 2"
+          [attr.y]="box.y + box.height - handleSize / 2"
+          [attr.width]="handleSize"
+          [attr.height]="handleSize"
+        />
+      </g>
+    }
+  </svg>
+</div>
+
+<p class="note">
+  Click the board, then paste an image (Cmd/Ctrl+V) or drop image files onto it. Select: drag to move, drag the corner
+  square to resize, Delete to remove. Change Board width × height for more space; the board scrolls sideways when wider
+  than the page.
+</p>
