@@ -1,5 +1,5 @@
 import { Graha } from '../../shared/services';
-import { PgShapeTool, PgTool, WbTool } from './pg.model';
+import { PgAspectKind, PgShapeTool, PgTool, WbTool } from './pg.model';
 
 export const PG_TOOLS: { value: PgTool; label: string }[] = [
   { value: 'line', label: 'Line' },
@@ -67,11 +67,37 @@ export const PG_ASPECTS: Record<Graha, number[]> = {
   Ketu: [5, 7, 9],
 };
 
+export const PG_ASPECT_OPTIONS: { value: PgAspectKind; label: string }[] = [
+  { value: 'trines', label: 'Show trines' },
+  { value: 'seventh', label: '7th aspect' },
+  { value: 'mars', label: 'Mars aspect' },
+  { value: 'saturn', label: 'Saturn aspect' },
+  { value: 'rasi', label: 'Rasi aspects' },
+];
+
+export const PG_ASPECT_COUNTS: Record<Exclude<PgAspectKind, 'rasi'>, number[]> = {
+  trines: [5, 9],
+  seventh: [7],
+  mars: [4, 7, 8],
+  saturn: [3, 7, 10],
+};
+
+// Indexed by sign % 3. Movable signs aspect the fixed signs except the next one; fixed signs aspect the movable
+// signs except the previous one; dual signs aspect the other dual signs.
+export const RASI_ASPECT_COUNTS = [
+  [5, 8, 11],
+  [3, 6, 9],
+  [4, 7, 10],
+];
+
 export const ASPECT_ARROW_GAP = 14;
 
 export const ASPECT_LABEL_AT = 0.55;
 
-export const WB_TOOLS: { value: WbTool; label: string }[] = [{ value: 'select', label: 'Select' }, ...PG_TOOLS];
+export const WB_TOOLS: { value: WbTool; label: string }[] = [
+  { value: 'select', label: 'Select' },
+  ...PG_TOOLS,
+];
 
 export const WB_WIDTH = 1200;
 
@@ -90,6 +116,12 @@ export const WB_MIN_SIZE = 12;
 export const WB_HANDLE_SIZE = 12;
 
 export const WB_SELECTION_PAD = 6;
+
+export const WB_MENU_WIDTH = 180;
+
+export const WB_MENU_HEIGHT = 420;
+
+export const WB_MENU_EDGE = 8;
 
 export const WB_TEXT_WIDTH_RATIO = 0.6;
 
@@ -113,4 +145,17 @@ export const WB_INLINE_STYLES = [
 
 export const PG_DEFAULT_CITY = 'Bengaluru';
 
-export const HOUSE_ORDINALS = ['1st', '2nd', '3rd', '4th', '5th', '6th', '7th', '8th', '9th', '10th', '11th', '12th'];
+export const HOUSE_ORDINALS = [
+  '1st',
+  '2nd',
+  '3rd',
+  '4th',
+  '5th',
+  '6th',
+  '7th',
+  '8th',
+  '9th',
+  '10th',
+  '11th',
+  '12th',
+];

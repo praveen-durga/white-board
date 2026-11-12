@@ -1,0 +1,18 @@
+<div class="menu-title">{{ heading() }}</div>
+@for (option of options; track option.value) {
+  <button
+    type="button"
+    role="menuitemradio"
+    [attr.aria-checked]="activeKind() === option.value"
+    [class.active]="activeKind() === option.value"
+    [disabled]="option.value === 'rasi' && isRasiDisabled()"
+    [title]="option.value === 'rasi' && isRasiDisabled() ? 'Set a Lagna to know the signs' : ''"
+    (click)="picked.emit(option.value)"
+  >
+    {{ option.label }}
+  </button>
+}
+@if (activeKind()) {
+  <button type="button" role="menuitem" (click)="picked.emit(null)">Clear aspects</button>
+}
+<ng-content />

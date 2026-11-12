@@ -80,6 +80,34 @@
     opacity: 0.7;
   }
 
+  .chart-aspects {
+    pointer-events: none;
+  }
+
+  .aspect-source {
+    fill: color-mix(in oklch, var(--color-warning) 22%, transparent);
+  }
+
+  .aspect-cell {
+    fill: color-mix(in oklch, var(--color-info) 18%, transparent);
+  }
+
+  .aspect-line {
+    stroke: var(--color-info);
+    stroke-width: 1.5;
+  }
+
+  .aspect-label {
+    font-family: sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    text-anchor: middle;
+    fill: var(--color-info);
+    paint-order: stroke;
+    stroke: var(--color-base-100);
+    stroke-width: 3px;
+  }
+
   .item-text {
     font-family: sans-serif;
     user-select: none;

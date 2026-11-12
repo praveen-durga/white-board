@@ -1,4 +1,13 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal, viewChild, viewChildren } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  ChangeDetectorRef,
+  Component,
+  computed,
+  inject,
+  signal,
+  viewChild,
+  viewChildren,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { BirthDetailsFormComponent } from '../../features/birth-chart';
 import { BirthDetails } from '../../shared/models';
@@ -19,18 +28,25 @@ import {
   PG_WIDTHS,
   WB_SNAPSHOT_SIZE,
 } from './pg.data';
-import { PgChartStyle, PgDraft, PgShape, PgTool } from './pg.model';
+import { PgChartAspect, PgDraft, PgShape, PgTool, WbChartRenderer } from './pg.model';
 import { buildAspectView, buildDefaultPgDetails } from './utils/pg.util';
 
 @Component({
   selector: 'app-pg',
-  imports: [FormsModule, BirthDetailsFormComponent, ButtonComponent, PgDrawingBoardComponent, PgWhiteboardComponent],
+  imports: [
+    FormsModule,
+    BirthDetailsFormComponent,
+    ButtonComponent,
+    PgDrawingBoardComponent,
+    PgWhiteboardComponent,
+  ],
   templateUrl: './pg.component.html',
   styleUrl: './pg.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class PgComponent {
   private ephemeris = inject(EphemerisService);
+  private changeDetector = inject(ChangeDetectorRef);
 
   protected chart = signal<D1Chart | null>(null);
   protected formDetails = signal<BirthDetails>(buildDefaultPgDetails(new Date()));
@@ -43,11 +59,11 @@ export class PgComponent {
   protected hoveredGraha = signal<Graha | null>(null);
   protected showPlanets = signal(true);
   protected lagnaKey = signal(LAGNA_ACTUAL);
+  protected chartAspect = signal<PgChartAspect | null>(null);
   protected inkToShape = signal(true);
   protected writeLanguage = signal(HANDWRITING_LANGUAGES[0].value);
 
   private pgForm = viewChild.required<BirthDetailsFormComponent>('pgForm');
-  private whiteboard = viewChild.required(PgWhiteboardComponent);
   private boards = viewChildren(PgDrawingBoardComponent);
 
   private nextId = 1;
@@ -102,16 +118,6 @@ export class PgComponent {
     this.hoveredGraha.set(null);
   }
 
-  protected onSnapshotRequested(style: PgChartStyle): void {
-    const board = this.boards().find((item) => item.chartStyle() === style);
-    this.hoveredGraha.set(null);
-    this.whiteboard().addImage({
-      href: board ? board.snapshot() : emptyChart(style, WB_SNAPSHOT_SIZE),
-      width: WB_SNAPSHOT_SIZE,
-      height: WB_SNAPSHOT_SIZE,
-    });
-  }
-
   protected onShapeAdded(draft: PgDraft): void {
     this.commit([...this.shapes(), { ...draft, id: this.nextId++ }]);
   }
@@ -151,8 +157,33 @@ export class PgComponent {
     }
 
     const instant = wallTimeToUtc(details.dob, details.tob, details.timezone);
-    this.chart.set(await this.ephemeris.calculateD1Chart(instant, details.lat, details.lng, details.ayanamsa));
+    this.chart.set(
+      await this.ephemeris.calculateD1Chart(instant, details.lat, details.lng, details.ayanamsa),
+    );
   }
+
+  // A chosen Lagna is applied to the live board just long enough to snapshot it, then the page's Lagna is restored.
+  protected renderChart: WbChartRenderer = ({ style, lagnaRasi }) => {
+    this.hoveredGraha.set(null);
+    const findBoard = () => this.boards().find((item) => item.chartStyle() === style);
+    if (!findBoard()) {
+      return { href: emptyChart(style, WB_SNAPSHOT_SIZE, lagnaRasi), resolvedLagna: lagnaRasi };
+    }
+    if (lagnaRasi === null) {
+      this.changeDetector.detectChanges();
+      return {
+        href: findBoard()!.snapshot(),
+        resolvedLagna: this.displayChart()?.ascendantRasi ?? null,
+      };
+    }
+    const previous = this.lagnaKey();
+    this.lagnaKey.set(`rasi-${lagnaRasi}`);
+    this.changeDetector.detectChanges();
+    const href = findBoard()!.snapshot();
+    this.lagnaKey.set(previous);
+    this.changeDetector.detectChanges();
+    return { href, resolvedLagna: lagnaRasi };
+  };
 
   private commit(shapes: PgShape[]): void {
     this.undoStack.update((stack) => [...stack, this.shapes()]);

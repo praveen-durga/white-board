@@ -6,9 +6,58 @@ import {
   WB_MIN_SIZE,
   WB_TEXT_WIDTH_RATIO,
 } from '../pg.data';
-import { REGION_POLYGONS_BY_STYLE } from '../../../shared/ui/organisms/rasi-chart/rasi-chart-coordinates';
-import { ChartPoint, PgChartStyle, WbBox, WbDrag, WbImage, WbItem, WbRenderedItem } from '../pg.model';
-import { arrowHead, shapePath } from './pg.util';
+import {
+  RASI_LABEL_POSITIONS_BY_STYLE,
+  REGION_POLYGONS_BY_STYLE,
+} from '../../../shared/ui/organisms/rasi-chart/rasi-chart-coordinates';
+import {
+  ChartPoint,
+  PgChartStyle,
+  WbBox,
+  WbDrag,
+  WbImage,
+  WbItem,
+  WbRenderedItem,
+} from '../pg.model';
+import {
+  arrowHead,
+  aspectCounts,
+  buildCells,
+  renderChartAspects,
+  shapePath,
+  toSignPoint,
+} from './pg.util';
+
+// With Lagna = Aries the rasi-indexed North cells are in house order: HOUSE_CELLS[0] is the 1st house.
+const HOUSE_CELLS = buildCells('north', 0);
+
+const CHART_SIZE = 400;
+
+// 0-based house of a North chart image under a board point, or null when outside it.
+export function chartHouseAt(box: WbBox, point: ChartPoint): number | null {
+  const local = {
+    x: ((point.x - box.x) / box.width) * CHART_SIZE,
+    y: ((point.y - box.y) / box.height) * CHART_SIZE,
+  };
+  return toSignPoint(HOUSE_CELLS, local).rasi;
+}
+
+function renderWbChartAspects(item: WbItem): WbRenderedItem['chartAspects'] {
+  const aspect = item.kind === 'image' ? item.chart?.aspect : undefined;
+  if (item.kind !== 'image' || !aspect) {
+    return null;
+  }
+  const lagna = item.chart?.resolvedLagna ?? null;
+  if (aspect.kind === 'rasi' && lagna === null) {
+    return null;
+  }
+  const counts = aspectCounts(aspect.kind, ((lagna ?? 0) + aspect.house) % 12);
+  const { x, y, width, height } = item.box;
+  return {
+    ...renderChartAspects(HOUSE_CELLS, aspect.house, counts),
+    transform: `translate(${x} ${y}) scale(${width / CHART_SIZE} ${height / CHART_SIZE})`,
+  };
+}
 
 export const wbTextSize = (width: number) => 14 + width * 3;
 
@@ -32,10 +81,17 @@ export function itemBounds(item: WbItem): WbBox {
   return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y };
 }
 
-function transformItem(item: WbItem, map: (point: ChartPoint) => ChartPoint, scale: number): WbItem {
+function transformItem(
+  item: WbItem,
+  map: (point: ChartPoint) => ChartPoint,
+  scale: number,
+): WbItem {
   if (item.kind === 'image') {
     const { x, y } = map(item.box);
-    return { ...item, box: { x, y, width: item.box.width * scale, height: item.box.height * scale } };
+    return {
+      ...item,
+      box: { x, y, width: item.box.width * scale, height: item.box.height * scale },
+    };
   }
   if (item.kind === 'text') {
     return { ...item, point: map(item.point), size: item.size * scale };
@@ -53,7 +109,11 @@ export function draggedItem(drag: WbDrag, point: ChartPoint): WbItem {
   const { x, y, width, height } = drag.bounds;
   const span = Math.max(width + height, 1);
   const scale = Math.max((span + dx + dy) / span, WB_MIN_SIZE / Math.max(width, height, 1));
-  return transformItem(drag.original, (p) => ({ x: x + (p.x - x) * scale, y: y + (p.y - y) * scale }), scale);
+  return transformItem(
+    drag.original,
+    (p) => ({ x: x + (p.x - x) * scale, y: y + (p.y - y) * scale }),
+    scale,
+  );
 }
 
 export function renderItem(item: WbItem): WbRenderedItem {
@@ -63,6 +123,7 @@ export function renderItem(item: WbItem): WbRenderedItem {
     path: isShape ? shapePath(item.tool, item.points) : '',
     arrowHead: isShape && item.tool === 'arrow' ? arrowHead(item.points) : null,
     isDotted: isShape && DOTTED_TOOLS.includes(item.tool),
+    chartAspects: renderWbChartAspects(item),
   };
 }
 
@@ -71,7 +132,8 @@ export function fitImage(href: string, width: number, height: number): WbImage {
   return { href, width: width * scale, height: height * scale };
 }
 
-const svgDataUrl = (markup: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
+const svgDataUrl = (markup: string) =>
+  `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
 
 function loadImage(href: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -102,7 +164,9 @@ function inlineStyles(svg: SVGSVGElement): SVGSVGElement {
     const computed = getComputedStyle(source);
     targets[index].setAttribute(
       'style',
-      WB_INLINE_STYLES.map((property) => `${property}:${computed.getPropertyValue(property)}`).join(';'),
+      WB_INLINE_STYLES.map((property) => `${property}:${computed.getPropertyValue(property)}`).join(
+        ';',
+      ),
     );
   });
   return clone;
@@ -121,16 +185,38 @@ export function snapshotLayers(layers: SVGSVGElement[], size: number): string {
   );
 }
 
-export function emptyChart(style: PgChartStyle, size: number): string {
-  const cells = REGION_POLYGONS_BY_STYLE[style].map((points) => `<polygon points="${points}" />`).join('');
+// North cells run counter-clockwise from the Lagna house, so position p holds rasi (lagna - p).
+function signNumbers(style: PgChartStyle, lagnaRasi: number | null): string {
+  if (style !== 'north' || lagnaRasi === null) {
+    return '';
+  }
+  const labels = RASI_LABEL_POSITIONS_BY_STYLE.north.map(
+    ([x, y], position) =>
+      `<text x="${x}" y="${y}">${((lagnaRasi - position + 12) % 12) + 1}</text>`,
+  );
+  return `<g fill="#777777" font-family="sans-serif" font-size="12" text-anchor="middle">${labels.join('')}</g>`;
+}
+
+export function emptyChart(
+  style: PgChartStyle,
+  size: number,
+  lagnaRasi: number | null = null,
+): string {
+  const cells = REGION_POLYGONS_BY_STYLE[style]
+    .map((points) => `<polygon points="${points}" />`)
+    .join('');
   return svgDataUrl(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 400 400">` +
       `<rect x="1" y="1" width="398" height="398" fill="#ffffff" />` +
-      `<g fill="none" stroke="#555555" stroke-width="1.5">${cells}</g></svg>`,
+      `<g fill="none" stroke="#555555" stroke-width="1.5">${cells}</g>${signNumbers(style, lagnaRasi)}</svg>`,
   );
 }
 
-export async function exportPng(board: SVGSVGElement, width: number, height: number): Promise<void> {
+export async function exportPng(
+  board: SVGSVGElement,
+  width: number,
+  height: number,
+): Promise<void> {
   const clone = inlineStyles(board);
   clone.querySelectorAll('.wb-ui').forEach((element) => element.remove());
   const image = await loadImage(svgDataUrl(serialize(clone, width, height)));

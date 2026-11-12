@@ -59,15 +59,30 @@
   </label>
 
   <div class="tools">
-    <button type="button" (click)="snapshotRequested.emit('north')">Add North chart</button>
-    <button type="button" (click)="snapshotRequested.emit('south')">Add South chart</button>
+    <label class="field">
+      Lagna
+      <select
+        [ngModel]="lagnaValue()"
+        (ngModelChange)="onLagnaChange($event)"
+        aria-label="Lagna for North chart"
+      >
+        <option [ngValue]="null">Chart Lagna</option>
+        @for (option of signOptions; track option.value) {
+          <option [ngValue]="option.value">{{ option.label }}</option>
+        }
+      </select>
+    </label>
+    <button type="button" (click)="onAddChart('north')">Add North chart</button>
+    <button type="button" (click)="onAddChart('south')">Add South chart</button>
   </div>
 
   <div class="tools">
     <button type="button" [disabled]="!canUndo()" (click)="onUndo()">Undo</button>
     <button type="button" [disabled]="!canRedo()" (click)="onRedo()">Redo</button>
     <button type="button" [disabled]="!selection()" (click)="onDeleteSelected()">Delete</button>
-    <button type="button" class="danger" [disabled]="items().length === 0" (click)="onClearAll()">Clear all</button>
+    <button type="button" class="danger" [disabled]="items().length === 0" (click)="onClearAll()">
+      Clear all
+    </button>
     <button type="button" (click)="onExport()">Export PNG</button>
   </div>
 </div>
@@ -88,6 +103,7 @@
     (pointerup)="onPointerUp()"
     (pointercancel)="onPointerUp()"
     (keydown)="onKeyDown($event)"
+    (contextmenu)="onContextMenu($event)"
     (dragover)="onDragOver($event)"
     (drop)="onDrop($event)"
   >
@@ -104,6 +120,21 @@
             [attr.height]="entry.item.box.height"
             preserveAspectRatio="none"
           />
+          @if (entry.chartAspects; as view) {
+            <g class="chart-aspects" [attr.transform]="view.transform">
+              <polygon class="aspect-source" [attr.points]="view.source" />
+              @for (aspect of view.lines; track aspect.aspect) {
+                <polygon class="aspect-cell" [attr.points]="aspect.cell" />
+                <path class="aspect-line" [attr.d]="aspect.path" />
+                @if (aspect.arrowHead) {
+                  <path class="aspect-line" [attr.d]="aspect.arrowHead" />
+                }
+                <text class="aspect-label" [attr.x]="aspect.label.x" [attr.y]="aspect.label.y">
+                  {{ aspect.aspect }}
+                </text>
+              }
+            </g>
+          }
         } @else if (entry.item.kind === 'text') {
           <text
             class="item-text"
@@ -120,10 +151,16 @@
             [attr.d]="entry.path"
             [attr.stroke]="entry.item.color"
             [attr.stroke-width]="entry.item.width"
-            [attr.stroke-dasharray]="entry.isDotted ? entry.item.width + ' ' + entry.item.width * 2.5 : null"
+            [attr.stroke-dasharray]="
+              entry.isDotted ? entry.item.width + ' ' + entry.item.width * 2.5 : null
+            "
           />
           @if (entry.arrowHead) {
-            <path [attr.d]="entry.arrowHead" [attr.stroke]="entry.item.color" [attr.stroke-width]="entry.item.width" />
+            <path
+              [attr.d]="entry.arrowHead"
+              [attr.stroke]="entry.item.color"
+              [attr.stroke-width]="entry.item.width"
+            />
           }
         }
       </g>
@@ -145,7 +182,13 @@
 
     @if (selection(); as box) {
       <g class="wb-ui">
-        <rect class="selection" [attr.x]="box.x" [attr.y]="box.y" [attr.width]="box.width" [attr.height]="box.height" />
+        <rect
+          class="selection"
+          [attr.x]="box.x"
+          [attr.y]="box.y"
+          [attr.width]="box.width"
+          [attr.height]="box.height"
+        />
         <rect
           class="handle"
           data-handle
@@ -159,8 +202,42 @@
   </svg>
 </div>
 
+@if (contextMenu(); as menu) {
+  <app-pg-aspect-menu
+    [at]="menu.at"
+    [heading]="menuHeading()"
+    [activeKind]="menuAspectKind()"
+    [isRasiDisabled]="menuChart()?.resolvedLagna == null"
+    (picked)="onMenuAspect($event)"
+    (closed)="contextMenu.set(null)"
+  >
+    <div class="menu-title">Lagna</div>
+    <button
+      type="button"
+      role="menuitemradio"
+      [attr.aria-checked]="lagnaValue() === null"
+      [class.active]="lagnaValue() === null"
+      (click)="onMenuLagna(null)"
+    >
+      Chart Lagna
+    </button>
+    @for (option of signOptions; track option.value) {
+      <button
+        type="button"
+        role="menuitemradio"
+        [attr.aria-checked]="lagnaValue() === option.value"
+        [class.active]="lagnaValue() === option.value"
+        (click)="onMenuLagna(option.value)"
+      >
+        {{ option.value + 1 }}. {{ option.label }}
+      </button>
+    }
+  </app-pg-aspect-menu>
+}
+
 <p class="note">
-  Click the board, then paste an image (Cmd/Ctrl+V) or drop image files onto it. Select: drag to move, drag the corner
-  square to resize, Delete to remove. Change Board width × height for more space; the board scrolls sideways when wider
-  than the page.
+  Click the board, then paste an image (Cmd/Ctrl+V) or drop image files onto it. Select: drag to
+  move, drag the corner square to resize, Delete to remove. Right-click a North chart (or select it
+  and use Lagna) to change its Lagna. Change Board width × height for more space; the board scrolls
+  sideways when wider than the page.
 </p>

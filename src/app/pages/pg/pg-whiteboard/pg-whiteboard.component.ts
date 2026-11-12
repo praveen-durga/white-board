@@ -4,11 +4,12 @@ import {
   Component,
   computed,
   ElementRef,
-  output,
+  input,
   signal,
   viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { PgAspectMenuComponent } from '../pg-aspect-menu/pg-aspect-menu.component';
 import {
   HANDWRITING_LANGUAGES,
   PG_DEFAULT_COLOR,
@@ -19,13 +20,17 @@ import {
   WB_MIN_BOARD,
   WB_SELECTION_PAD,
   WB_SIZE_STEP,
+  WB_SNAPSHOT_SIZE,
   WB_TOOLS,
   WB_WIDTH,
 } from '../pg.data';
 import {
   ChartPoint,
   InkPoint,
+  PgAspectKind,
   PgChartStyle,
+  WbChartMeta,
+  WbChartRenderer,
   WbDrag,
   WbImage,
   WbItem,
@@ -33,21 +38,35 @@ import {
   WbStrokeTool,
   WbTool,
 } from '../pg.model';
+import { RASI_NAMES } from '../../../shared/utils';
 import { shapePath, shapePoints } from '../utils/pg.util';
-import { HandwritingBuffer, inkBounds, isHandwritingSupported, recognizeHandwriting } from '../utils/pg-handwriting.util';
+import {
+  HandwritingBuffer,
+  inkBounds,
+  isHandwritingSupported,
+  recognizeHandwriting,
+} from '../utils/pg-handwriting.util';
 import { finishStroke } from '../utils/pg-ink.util';
-import { draggedItem, exportPng, itemBounds, readImageFile, renderItem, wbTextSize } from '../utils/pg-whiteboard.util';
+import {
+  chartHouseAt,
+  draggedItem,
+  exportPng,
+  itemBounds,
+  readImageFile,
+  renderItem,
+  wbTextSize,
+} from '../utils/pg-whiteboard.util';
 
 @Component({
   selector: 'app-pg-whiteboard',
-  imports: [FormsModule],
+  imports: [FormsModule, PgAspectMenuComponent],
   templateUrl: './pg-whiteboard.component.html',
   styleUrl: './pg-whiteboard.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { '(document:paste)': 'onPaste($event)' },
 })
 export class PgWhiteboardComponent {
-  snapshotRequested = output<PgChartStyle>();
+  renderChart = input.required<WbChartRenderer>();
 
   protected tool = signal<WbTool>('select');
   protected color = signal(PG_DEFAULT_COLOR);
@@ -61,6 +80,8 @@ export class PgWhiteboardComponent {
   protected boardHeight = signal(WB_HEIGHT);
   protected inkToShape = signal(true);
   protected writeLanguage = signal(HANDWRITING_LANGUAGES[0].value);
+  protected northLagna = signal<number | null>(null);
+  protected contextMenu = signal<{ at: ChartPoint; id: number; house: number | null } | null>(null);
 
   private board = viewChild.required<ElementRef<SVGSVGElement>>('board');
   private viewport = viewChild.required<ElementRef<HTMLElement>>('viewport');
@@ -73,6 +94,7 @@ export class PgWhiteboardComponent {
   protected isWriteSupported = isHandwritingSupported();
   protected tools = WB_TOOLS.filter((item) => item.value !== 'write' || this.isWriteSupported);
   protected languages = HANDWRITING_LANGUAGES;
+  protected signOptions = RASI_NAMES.map((name, rasi) => ({ value: rasi, label: name }));
   protected widths = PG_WIDTHS;
   protected minBoard = WB_MIN_BOARD;
   protected sizeStep = WB_SIZE_STEP;
@@ -98,6 +120,39 @@ export class PgWhiteboardComponent {
     };
   });
 
+  protected selectedNorthChart = computed(() => {
+    const item = this.items().find(({ id }) => id === this.selectedId());
+    return this.tool() === 'select' && item?.kind === 'image' && item.chart?.style === 'north'
+      ? item
+      : null;
+  });
+
+  protected lagnaValue = computed(() => {
+    const chart = this.selectedNorthChart()?.chart;
+    return chart ? chart.lagnaRasi : this.northLagna();
+  });
+
+  protected menuChart = computed(() => {
+    const menu = this.contextMenu();
+    const item = this.items().find(({ id }) => id === menu?.id);
+    return item?.kind === 'image' && item.chart ? { ...item.chart, house: menu!.house } : null;
+  });
+
+  protected menuHeading = computed(() => {
+    const chart = this.menuChart();
+    if (!chart || chart.house === null) {
+      return 'Aspects';
+    }
+    const lagna = chart.resolvedLagna ?? null;
+    const sign = lagna === null ? '' : ` · ${RASI_NAMES[(lagna + chart.house) % 12]}`;
+    return `From house ${chart.house + 1}${sign}`;
+  });
+
+  protected menuAspectKind = computed(() => {
+    const chart = this.menuChart();
+    return chart?.aspect && chart.aspect.house === chart.house ? chart.aspect.kind : null;
+  });
+
   protected draftPath = computed(() => {
     const points = this.draft();
     const tool = this.tool();
@@ -109,26 +164,87 @@ export class PgWhiteboardComponent {
       : shapePath(tool, shapePoints(tool, points[0], points[points.length - 1]));
   });
 
-  protected writingPaths = computed(() => this.writing.strokes().map((points) => shapePath('free', points)));
+  protected writingPaths = computed(() =>
+    this.writing.strokes().map((points) => shapePath('free', points)),
+  );
 
   constructor() {
     afterNextRender(() => {
       const fitHeight = window.innerHeight - this.palette().nativeElement.offsetHeight;
-      this.boardWidth.set(Math.max(WB_MIN_BOARD, Math.floor(this.viewport().nativeElement.clientWidth)));
+      this.boardWidth.set(
+        Math.max(WB_MIN_BOARD, Math.floor(this.viewport().nativeElement.clientWidth)),
+      );
       this.boardHeight.set(Math.max(WB_MIN_BOARD, Math.floor(fitHeight)));
     });
   }
 
-  addImage({ href, width, height }: WbImage, at?: ChartPoint): void {
+  addImage({ href, width, height }: WbImage, at?: ChartPoint, chart?: WbChartMeta): void {
     const centre = at ?? this.visibleCentre();
     const id = this.nextId++;
     const box = { x: centre.x - width / 2, y: centre.y - height / 2, width, height };
-    this.commit([...this.items(), { id, kind: 'image', box, href }]);
+    this.commit([...this.items(), { id, kind: 'image', box, href, ...(chart ? { chart } : {}) }]);
     this.tool.set('select');
     this.selectedId.set(id);
   }
 
+  protected onAddChart(style: PgChartStyle): void {
+    const meta = { style, lagnaRasi: style === 'north' ? this.northLagna() : null };
+    const { href, resolvedLagna } = this.renderChart()(meta);
+    const size = WB_SNAPSHOT_SIZE;
+    this.addImage({ href, width: size, height: size }, undefined, { ...meta, resolvedLagna });
+  }
+
+  // With a North chart selected the picker redraws that chart; otherwise it sets the Lagna for the next one added.
+  protected onLagnaChange(lagnaRasi: number | null): void {
+    this.northLagna.set(lagnaRasi);
+    const selected = this.selectedNorthChart();
+    if (!selected?.chart) {
+      return;
+    }
+    const meta = { ...selected.chart, lagnaRasi };
+    const { href, resolvedLagna } = this.renderChart()(meta);
+    const chart = { ...meta, resolvedLagna };
+    this.commit(
+      this.items().map((item) => (item.id === selected.id ? { ...selected, href, chart } : item)),
+    );
+  }
+
+  protected onContextMenu(event: MouseEvent): void {
+    const id =
+      Number((event.target as Element).closest('[data-item]')?.getAttribute('data-item')) || null;
+    const item = this.items().find((entry) => entry.id === id);
+    if (item?.kind !== 'image' || item.chart?.style !== 'north') {
+      this.contextMenu.set(null);
+      return;
+    }
+    event.preventDefault();
+    this.tool.set('select');
+    this.selectedId.set(item.id);
+    const house = chartHouseAt(item.box, this.toBoardPoint(event));
+    this.contextMenu.set({ at: { x: event.clientX, y: event.clientY }, id: item.id, house });
+  }
+
+  protected onMenuLagna(lagnaRasi: number | null): void {
+    this.contextMenu.set(null);
+    this.onLagnaChange(lagnaRasi);
+  }
+
+  protected onMenuAspect(kind: PgAspectKind | null): void {
+    const menu = this.contextMenu();
+    this.contextMenu.set(null);
+    const item = this.items().find(({ id }) => id === menu?.id);
+    if (!menu || item?.kind !== 'image' || !item.chart || menu.house === null) {
+      return;
+    }
+    const { aspect: _previous, ...rest } = item.chart;
+    const chart = kind ? { ...rest, aspect: { kind, house: menu.house } } : rest;
+    this.commit(this.items().map((entry) => (entry.id === item.id ? { ...item, chart } : entry)));
+  }
+
   protected onPointerDown(event: PointerEvent): void {
+    if (event.button === 2) {
+      return;
+    }
     const svg = this.board().nativeElement;
     const tool = this.tool();
     const point = this.toBoardPoint(event);
@@ -313,10 +429,22 @@ export class PgWhiteboardComponent {
   }
 
   private toShapeItem(tool: WbStrokeTool, points: ChartPoint[]): WbItem {
-    return { id: this.nextId++, kind: 'shape', tool, points, color: this.color(), width: this.width() };
+    return {
+      id: this.nextId++,
+      kind: 'shape',
+      tool,
+      points,
+      color: this.color(),
+      width: this.width(),
+    };
   }
 
-  private startDrag(event: PointerEvent, point: ChartPoint, id: number | null, isResize: boolean): void {
+  private startDrag(
+    event: PointerEvent,
+    point: ChartPoint,
+    id: number | null,
+    isResize: boolean,
+  ): void {
     const original = this.items().find((item) => item.id === id);
     this.selectedId.set(original ? original.id : null);
     if (!original) {
@@ -350,7 +478,9 @@ export class PgWhiteboardComponent {
 
   private toBoardPoint(event: Pick<MouseEvent, 'clientX' | 'clientY'>): ChartPoint {
     const svg = this.board().nativeElement;
-    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM()!.inverse());
+    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(
+      svg.getScreenCTM()!.inverse(),
+    );
     return {
       x: Math.min(this.boardWidth(), Math.max(0, point.x)),
       y: Math.min(this.boardHeight(), Math.max(0, point.y)),

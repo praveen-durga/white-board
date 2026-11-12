@@ -13,7 +13,24 @@
     (pointerup)="onPointerUp()"
     (pointercancel)="onPointerUp()"
     (pointerleave)="onPointerLeave()"
+    (contextmenu)="onContextMenu($event)"
   >
+    @if (chartAspectView(); as view) {
+      <polygon class="aspect-source" [attr.points]="view.source" />
+      @for (aspect of view.lines; track aspect.aspect) {
+        <g class="aspect">
+          <polygon class="aspect-cell" [attr.points]="aspect.cell" />
+          <path class="aspect-line" [attr.d]="aspect.path" />
+          @if (aspect.arrowHead) {
+            <path class="aspect-line" [attr.d]="aspect.arrowHead" />
+          }
+          <text class="aspect-label" [attr.x]="aspect.label.x" [attr.y]="aspect.label.y">
+            {{ aspect.aspect }}
+          </text>
+        </g>
+      }
+    }
+
     @if (sourceCell()) {
       <polygon class="aspect-source" [attr.points]="sourceCell()" />
     }
@@ -25,7 +42,9 @@
         @if (aspect.arrowHead) {
           <path class="aspect-line" [attr.d]="aspect.arrowHead" />
         }
-        <text class="aspect-label" [attr.x]="aspect.label.x" [attr.y]="aspect.label.y">{{ aspect.aspect }}</text>
+        <text class="aspect-label" [attr.x]="aspect.label.x" [attr.y]="aspect.label.y">
+          {{ aspect.aspect }}
+        </text>
       </g>
     }
 
@@ -50,7 +69,11 @@
             [attr.stroke-dasharray]="shape.isDotted ? shape.width + ' ' + shape.width * 2.5 : null"
           />
           @if (shape.arrowHead) {
-            <path [attr.d]="shape.arrowHead" [attr.stroke]="shape.color" [attr.stroke-width]="shape.width" />
+            <path
+              [attr.d]="shape.arrowHead"
+              [attr.stroke]="shape.color"
+              [attr.stroke-width]="shape.width"
+            />
           }
         }
       </g>
@@ -71,3 +94,13 @@
     }
   </svg>
 </div>
+
+@if (contextMenu(); as menu) {
+  <app-pg-aspect-menu
+    [at]="menu.at"
+    [heading]="menuHeading()"
+    [activeKind]="menuAspectKind()"
+    (picked)="onMenuAspect($event)"
+    (closed)="contextMenu.set(null)"
+  />
+}

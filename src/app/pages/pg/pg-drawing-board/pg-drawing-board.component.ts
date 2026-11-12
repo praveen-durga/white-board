@@ -10,10 +10,14 @@ import {
 } from '@angular/core';
 import { D1Chart, Graha } from '../../../shared/services';
 import { RasiChartComponent } from '../../../shared/ui';
+import { RASI_NAMES } from '../../../shared/utils';
+import { PgAspectMenuComponent } from '../pg-aspect-menu/pg-aspect-menu.component';
 import { WB_SNAPSHOT_SIZE } from '../pg.data';
 import {
   ChartPoint,
   InkPoint,
+  PgAspectKind,
+  PgChartAspect,
   PgChartStyle,
   PgDraft,
   PgShape,
@@ -23,9 +27,11 @@ import {
   RenderedShape,
 } from '../pg.model';
 import {
+  aspectCounts,
   buildAspectView,
   buildCells,
   renderAspects,
+  renderChartAspects,
   renderShape,
   shapePath,
   shapePoints,
@@ -37,7 +43,7 @@ import { snapshotLayers } from '../utils/pg-whiteboard.util';
 
 @Component({
   selector: 'app-pg-drawing-board',
-  imports: [RasiChartComponent],
+  imports: [RasiChartComponent, PgAspectMenuComponent],
   templateUrl: './pg-drawing-board.component.html',
   styleUrl: './pg-drawing-board.component.scss',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,12 +58,15 @@ export class PgDrawingBoardComponent {
   hoveredGraha = input<Graha | null>(null);
   inkToShape = input(true);
   writeLanguage = input('en');
+  chartAspect = input<PgChartAspect | null>(null);
 
   shapeAdded = output<PgDraft>();
   shapeErased = output<number>();
   grahaHovered = output<Graha | null>();
+  chartAspectChange = output<PgChartAspect | null>();
 
   protected draft = signal<InkPoint[]>([]);
+  protected contextMenu = signal<{ at: ChartPoint; rasi: number } | null>(null);
 
   private board = viewChild.required<ElementRef<SVGSVGElement>>('board');
   private wrap = viewChild.required<ElementRef<HTMLElement>>('wrap');
@@ -73,6 +82,24 @@ export class PgDrawingBoardComponent {
   protected renderedAspects = computed<RenderedAspect[]>(() => {
     const graha = this.hoveredGraha();
     return graha ? renderAspects(this.cells(), buildAspectView(this.chart(), graha)) : [];
+  });
+
+  // Cells are indexed by rasi, so counting forward through them walks the zodiac from the clicked sign.
+  protected chartAspectView = computed(() => {
+    const aspect = this.chartAspect();
+    return aspect
+      ? renderChartAspects(this.cells(), aspect.rasi, aspectCounts(aspect.kind, aspect.rasi))
+      : null;
+  });
+
+  protected menuHeading = computed(() => {
+    const menu = this.contextMenu();
+    return menu ? `From ${menu.rasi + 1}. ${RASI_NAMES[menu.rasi]}` : '';
+  });
+
+  protected menuAspectKind = computed(() => {
+    const aspect = this.chartAspect();
+    return aspect && aspect.rasi === this.contextMenu()?.rasi ? aspect.kind : null;
   });
 
   protected sourceCell = computed(() => {
@@ -97,15 +124,41 @@ export class PgDrawingBoardComponent {
       : shapePath(tool, shapePoints(tool, points[0], points[points.length - 1]));
   });
 
-  protected writingPaths = computed(() => this.writing.strokes().map((points) => shapePath('free', points)));
+  protected writingPaths = computed(() =>
+    this.writing.strokes().map((points) => shapePath('free', points)),
+  );
 
   protected isEraser = computed(() => this.tool() === 'eraser');
 
   snapshot(): string {
-    return snapshotLayers(Array.from(this.wrap().nativeElement.querySelectorAll('svg')), WB_SNAPSHOT_SIZE);
+    return snapshotLayers(
+      Array.from(this.wrap().nativeElement.querySelectorAll('svg')),
+      WB_SNAPSHOT_SIZE,
+    );
+  }
+
+  protected onContextMenu(event: MouseEvent): void {
+    const rasi = toSignPoint(this.cells(), this.toChartPoint(event)).rasi;
+    if (rasi === null) {
+      this.contextMenu.set(null);
+      return;
+    }
+    event.preventDefault();
+    this.contextMenu.set({ at: { x: event.clientX, y: event.clientY }, rasi });
+  }
+
+  protected onMenuAspect(kind: PgAspectKind | null): void {
+    const menu = this.contextMenu();
+    this.contextMenu.set(null);
+    if (menu) {
+      this.chartAspectChange.emit(kind ? { kind, rasi: menu.rasi } : null);
+    }
   }
 
   protected onPointerDown(event: PointerEvent): void {
+    if (event.button === 2) {
+      return;
+    }
     const tool = this.tool();
     if (tool === 'eraser') {
       return;
@@ -192,9 +245,11 @@ export class PgDrawingBoardComponent {
     });
   }
 
-  private toChartPoint(event: PointerEvent): ChartPoint {
+  private toChartPoint(event: MouseEvent): ChartPoint {
     const svg = this.board().nativeElement;
-    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(svg.getScreenCTM()!.inverse());
+    const point = new DOMPoint(event.clientX, event.clientY).matrixTransform(
+      svg.getScreenCTM()!.inverse(),
+    );
     return { x: Math.min(400, Math.max(0, point.x)), y: Math.min(400, Math.max(0, point.y)) };
   }
 }

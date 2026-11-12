@@ -1,0 +1,40 @@
+@reference 'tailwindcss';
+
+:host {
+  @apply fixed z-20 flex flex-col p-1 rounded-lg overflow-y-auto shadow-lg;
+  width: 180px;
+  max-height: 420px;
+  border: 1px solid var(--color-base-300);
+  background: var(--color-base-100);
+  font-size: var(--font-size-sm);
+}
+
+:host ::ng-deep {
+  .menu-title {
+    @apply px-3 py-1 font-semibold;
+    color: color-mix(in oklch, var(--color-base-content) 65%, transparent);
+
+    &:not(:first-child) {
+      @apply mt-1 pt-2;
+      border-top: 1px solid var(--color-base-300);
+    }
+  }
+
+  button {
+    @apply px-3 py-1 rounded text-left;
+
+    &:hover:not(:disabled),
+    &:focus-visible {
+      background: var(--color-base-200);
+    }
+
+    &.active {
+      color: var(--color-primary-content);
+      background: var(--color-primary);
+    }
+
+    &:disabled {
+      @apply opacity-40 cursor-not-allowed;
+    }
+  }
+}

@@ -7,18 +7,22 @@ import {
   ASPECT_ARROW_GAP,
   ASPECT_LABEL_AT,
   DOTTED_TOOLS,
+  PG_ASPECT_COUNTS,
   PG_ASPECTS,
   PG_DEFAULT_CITY,
   PULL_IN_STEPS,
+  RASI_ASPECT_COUNTS,
 } from '../pg.data';
 import {
   ChartPoint,
+  PgAspectKind,
   PgAspectView,
   PgCell,
   PgChartStyle,
   PgShape,
   PgShapeTool,
   RenderedAspect,
+  RenderedChartAspects,
   RenderedShape,
   SignPoint,
 } from '../pg.model';
@@ -58,7 +62,10 @@ function isInside(point: ChartPoint, polygon: ChartPoint[]): boolean {
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
     const a = polygon[i];
     const b = polygon[j];
-    if (a.y > point.y !== b.y > point.y && point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x) {
+    if (
+      a.y > point.y !== b.y > point.y &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / (b.y - a.y) + a.x
+    ) {
       inside = !inside;
     }
   }
@@ -89,18 +96,26 @@ export function toChartPoint(cells: PgCell[], point: SignPoint): ChartPoint {
   let outside = 1;
   for (let step = 0; step < PULL_IN_STEPS; step++) {
     const middle = (inside + outside) / 2;
-    const probe = { x: centre.x + (target.x - centre.x) * middle, y: centre.y + (target.y - centre.y) * middle };
+    const probe = {
+      x: centre.x + (target.x - centre.x) * middle,
+      y: centre.y + (target.y - centre.y) * middle,
+    };
     if (isInside(probe, polygon)) {
       inside = middle;
     } else {
       outside = middle;
     }
   }
-  return { x: centre.x + (target.x - centre.x) * inside, y: centre.y + (target.y - centre.y) * inside };
+  return {
+    x: centre.x + (target.x - centre.x) * inside,
+    y: centre.y + (target.y - centre.y) * inside,
+  };
 }
 
 export function shapePoints(tool: PgShapeTool, start: ChartPoint, end: ChartPoint): ChartPoint[] {
-  return tool === 'rect' ? [start, { x: end.x, y: start.y }, end, { x: start.x, y: end.y }] : [start, end];
+  return tool === 'rect'
+    ? [start, { x: end.x, y: start.y }, end, { x: start.x, y: end.y }]
+    : [start, end];
 }
 
 export function shapePath(tool: PgShapeTool, points: ChartPoint[]): string {
@@ -159,13 +174,38 @@ export function buildAspectView(chart: D1Chart, graha: Graha): PgAspectView {
       return {
         rasi,
         aspect,
-        grahas: chart.grahas.filter((position) => position.rasi === rasi).map((position) => position.graha),
+        grahas: chart.grahas
+          .filter((position) => position.rasi === rasi)
+          .map((position) => position.graha),
       };
     }),
   };
 }
 
-export function renderAspects(cells: PgCell[], view: PgAspectView): RenderedAspect[] {
+// sign = the zodiac sign aspecting (only rasi aspects depend on it); counts are inclusive, 7 = the 7th from it.
+export function aspectCounts(kind: PgAspectKind, sign: number): number[] {
+  return kind === 'rasi' ? RASI_ASPECT_COUNTS[sign % 3] : PG_ASPECT_COUNTS[kind];
+}
+
+const cellPoints = (cell: PgCell) => cell.polygon.map((point) => `${point.x},${point.y}`).join(' ');
+
+// from indexes cells; counts step forward through the same index, so cells must be in zodiac/house order.
+export function renderChartAspects(
+  cells: PgCell[],
+  from: number,
+  counts: number[],
+): RenderedChartAspects {
+  const aspects = counts.map((aspect) => ({ rasi: (from + aspect - 1) % 12, aspect, grahas: [] }));
+  return {
+    source: cellPoints(cells[from]),
+    lines: renderAspects(cells, { fromRasi: from, aspects }),
+  };
+}
+
+export function renderAspects(
+  cells: PgCell[],
+  view: Pick<PgAspectView, 'fromRasi' | 'aspects'>,
+): RenderedAspect[] {
   const from = cells[view.fromRasi].centre;
   return view.aspects.map(({ rasi, aspect }) => {
     const to = cells[rasi].centre;
@@ -178,8 +218,11 @@ export function renderAspects(cells: PgCell[], view: PgAspectView): RenderedAspe
       aspect,
       path: `M${format(from)} L${format(end)}`,
       arrowHead: arrowHead([from, end]),
-      label: { x: from.x + (to.x - from.x) * ASPECT_LABEL_AT, y: from.y + (to.y - from.y) * ASPECT_LABEL_AT },
-      cell: cells[rasi].polygon.map((point) => `${point.x},${point.y}`).join(' '),
+      label: {
+        x: from.x + (to.x - from.x) * ASPECT_LABEL_AT,
+        y: from.y + (to.y - from.y) * ASPECT_LABEL_AT,
+      },
+      cell: cellPoints(cells[rasi]),
     };
   });
 }
