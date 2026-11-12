@@ -12,7 +12,7 @@ import { D1Chart, Graha } from '../../../shared/services';
 import { RasiChartComponent } from '../../../shared/ui';
 import { RASI_NAMES } from '../../../shared/utils';
 import { PgAspectMenuComponent } from '../pg-aspect-menu/pg-aspect-menu.component';
-import { WB_SNAPSHOT_SIZE } from '../pg.data';
+import { WB_HANDLE_SIZE, WB_SELECTION_PAD, WB_SNAPSHOT_SIZE } from '../pg.data';
 import {
   ChartPoint,
   InkPoint,
@@ -25,6 +25,7 @@ import {
   PgTool,
   RenderedAspect,
   RenderedShape,
+  WbDrag,
 } from '../pg.model';
 import {
   aspectCounts,
@@ -39,7 +40,14 @@ import {
 } from '../utils/pg.util';
 import { HandwritingBuffer, inkBounds, recognizeHandwriting } from '../utils/pg-handwriting.util';
 import { finishStroke } from '../utils/pg-ink.util';
-import { snapshotLayers } from '../utils/pg-whiteboard.util';
+import {
+  draggedItem,
+  itemBounds,
+  itemToPgShape,
+  pgShapeToItem,
+  pgTextSize,
+  snapshotLayers,
+} from '../utils/pg-whiteboard.util';
 
 @Component({
   selector: 'app-pg-drawing-board',
@@ -59,25 +67,51 @@ export class PgDrawingBoardComponent {
   inkToShape = input(true);
   writeLanguage = input('en');
   chartAspect = input<PgChartAspect | null>(null);
+  selectedShapeId = input<number | null>(null);
 
   shapeAdded = output<PgDraft>();
   shapeErased = output<number>();
   grahaHovered = output<Graha | null>();
   chartAspectChange = output<PgChartAspect | null>();
+  shapeSelected = output<number | null>();
+  shapeChanged = output<PgShape>();
 
   protected draft = signal<InkPoint[]>([]);
+  // Live copy of the shape being moved/resized; emitted once on release so undo gets one step.
+  protected dragShape = signal<PgShape | null>(null);
   protected contextMenu = signal<{ at: ChartPoint; rasi: number } | null>(null);
 
   private board = viewChild.required<ElementRef<SVGSVGElement>>('board');
   private wrap = viewChild.required<ElementRef<HTMLElement>>('wrap');
 
+  private drag: (WbDrag & { shape: PgShape }) | null = null;
   private writing = new HandwritingBuffer((strokes) => this.onWritingDone(strokes));
 
   protected cells = computed(() => buildCells(this.chartStyle(), this.chart().ascendantRasi));
 
-  protected renderedShapes = computed<RenderedShape[]>(() =>
-    this.shapes().map((shape) => renderShape(this.cells(), shape)),
-  );
+  protected renderedShapes = computed<RenderedShape[]>(() => {
+    const dragged = this.dragShape();
+    return this.shapes().map((shape) =>
+      renderShape(this.cells(), dragged?.id === shape.id ? dragged : shape),
+    );
+  });
+
+  protected handleSize = WB_HANDLE_SIZE;
+  protected textSize = pgTextSize;
+
+  protected selectionBox = computed(() => {
+    const shape = this.dragShape() ?? this.shapes().find(({ id }) => id === this.selectedShapeId());
+    if (this.tool() !== 'select' || !shape) {
+      return null;
+    }
+    const { x, y, width, height } = itemBounds(pgShapeToItem(this.cells(), shape));
+    return {
+      x: x - WB_SELECTION_PAD,
+      y: y - WB_SELECTION_PAD,
+      width: width + WB_SELECTION_PAD * 2,
+      height: height + WB_SELECTION_PAD * 2,
+    };
+  });
 
   protected renderedAspects = computed<RenderedAspect[]>(() => {
     const graha = this.hoveredGraha();
@@ -116,7 +150,7 @@ export class PgDrawingBoardComponent {
   protected draftPath = computed(() => {
     const points = this.draft();
     const tool = this.tool();
-    if (points.length < 2 || tool === 'eraser' || tool === 'text') {
+    if (points.length < 2 || tool === 'select' || tool === 'eraser' || tool === 'text') {
       return '';
     }
     return tool === 'free' || tool === 'write'
@@ -164,6 +198,10 @@ export class PgDrawingBoardComponent {
       return;
     }
     const point = this.toChartPoint(event);
+    if (tool === 'select') {
+      this.startDrag(event, point);
+      return;
+    }
     if (tool === 'text') {
       const text = window.prompt('Text')?.trim();
       if (text) {
@@ -177,6 +215,12 @@ export class PgDrawingBoardComponent {
   }
 
   protected onPointerMove(event: PointerEvent): void {
+    const drag = this.drag;
+    if (drag) {
+      const item = draggedItem(drag, this.toChartPoint(event));
+      this.dragShape.set(itemToPgShape(this.cells(), drag.shape, item));
+      return;
+    }
     if (!this.draft().length) {
       this.detectHover(event);
       return;
@@ -187,10 +231,19 @@ export class PgDrawingBoardComponent {
   }
 
   protected onPointerUp(): void {
+    if (this.drag) {
+      const moved = this.dragShape();
+      this.drag = null;
+      this.dragShape.set(null);
+      if (moved) {
+        this.shapeChanged.emit(moved);
+      }
+      return;
+    }
     const points = this.draft();
     const tool = this.tool();
     this.draft.set([]);
-    if (points.length < 2 || tool === 'eraser' || tool === 'text') {
+    if (points.length < 2 || tool === 'select' || tool === 'eraser' || tool === 'text') {
       return;
     }
     if (tool === 'write') {
@@ -204,6 +257,19 @@ export class PgDrawingBoardComponent {
     }
   }
 
+  protected onKeyDown(event: KeyboardEvent): void {
+    const id = this.selectedShapeId();
+    if (this.tool() !== 'select' || id === null) {
+      return;
+    }
+    if (event.key === 'Escape') {
+      this.shapeSelected.emit(null);
+    } else if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault();
+      this.shapeErased.emit(id);
+    }
+  }
+
   protected onShapeClick(id: number): void {
     if (this.isEraser()) {
       this.shapeErased.emit(id);
@@ -214,6 +280,32 @@ export class PgDrawingBoardComponent {
     if (this.hoveredGraha()) {
       this.grahaHovered.emit(null);
     }
+  }
+
+  // Clicking a drawing selects it and starts a move; the corner handle resizes the selected one.
+  private startDrag(event: PointerEvent, point: ChartPoint): void {
+    const target = event.target as Element;
+    const isResize = !!target.closest('[data-handle]');
+    const id = isResize
+      ? this.selectedShapeId()
+      : Number(target.closest('[data-shape]')?.getAttribute('data-shape')) || null;
+    const shape = this.shapes().find((entry) => entry.id === id);
+    this.shapeSelected.emit(shape ? shape.id : null);
+    if (!shape) {
+      return;
+    }
+    const svg = this.board().nativeElement;
+    svg.focus({ preventScroll: true });
+    svg.setPointerCapture(event.pointerId);
+    const original = pgShapeToItem(this.cells(), shape);
+    this.drag = {
+      mode: isResize ? 'resize' : 'move',
+      start: point,
+      original,
+      bounds: itemBounds(original),
+      before: [],
+      shape,
+    };
   }
 
   private detectHover(event: PointerEvent): void {

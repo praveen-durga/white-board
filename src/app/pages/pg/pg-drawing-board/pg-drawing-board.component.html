@@ -5,6 +5,9 @@
     #board
     class="board"
     [class.eraser]="isEraser()"
+    [class.select]="tool() === 'select'"
+    tabindex="0"
+    (keydown)="onKeyDown($event)"
     viewBox="0 0 400 400"
     preserveAspectRatio="xMidYMin meet"
     xmlns="http://www.w3.org/2000/svg"
@@ -49,14 +52,14 @@
     }
 
     @for (shape of renderedShapes(); track shape.id) {
-      <g class="shape" (click)="onShapeClick(shape.id)">
+      <g class="shape" [attr.data-shape]="shape.id" (click)="onShapeClick(shape.id)">
         @if (shape.text) {
           <text
             class="shape-text"
             [attr.x]="shape.text.x"
             [attr.y]="shape.text.y"
             [attr.fill]="shape.color"
-            [attr.font-size]="10 + shape.width * 2"
+            [attr.font-size]="textSize(shape.width)"
           >
             {{ shape.text.value }}
           </text>
@@ -77,6 +80,24 @@
           }
         }
       </g>
+    }
+
+    @if (selectionBox(); as box) {
+      <rect
+        class="selection"
+        [attr.x]="box.x"
+        [attr.y]="box.y"
+        [attr.width]="box.width"
+        [attr.height]="box.height"
+      />
+      <rect
+        class="handle"
+        data-handle
+        [attr.x]="box.x + box.width - handleSize / 2"
+        [attr.y]="box.y + box.height - handleSize / 2"
+        [attr.width]="handleSize"
+        [attr.height]="handleSize"
+      />
     }
 
     @for (path of writingPaths(); track $index) {

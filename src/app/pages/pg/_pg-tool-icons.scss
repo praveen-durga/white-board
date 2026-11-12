@@ -1,0 +1,83 @@
+// Toolbar controls show text labels on wider screens and compact icons on phones, so the
+// palette fits in about three rows: drawing tools; settings + history; Lagna / Write in.
+@mixin tool-icons {
+  .tool-icon {
+    display: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  @media (width < 40rem) {
+    .palette {
+      gap: 0.375rem;
+      padding: 0.5rem;
+    }
+
+    .tool-icon {
+      display: block;
+    }
+
+    // Visually hidden but still read by screen readers.
+    .tool-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
+
+    .tools button:has(.tool-icon),
+    .field .reset:has(.tool-icon) {
+      padding: 0.3125rem;
+    }
+
+    .field {
+      gap: 0.25rem;
+
+      select {
+        padding: 0.25rem;
+      }
+    }
+
+    input[type='color'] {
+      width: 2rem;
+      height: 2rem;
+      padding: 0;
+    }
+
+    // Checkbox settings become toggle buttons: highlighted while on.
+    .toggle {
+      position: relative;
+      padding: 0.3125rem;
+      border: 1px solid var(--color-base-300);
+      border-radius: 0.25rem;
+      cursor: pointer;
+
+      input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      &:has(input:checked) {
+        color: var(--color-primary-content);
+        background: var(--color-primary);
+      }
+
+      &:has(input:focus-visible) {
+        outline: 2px solid var(--color-primary);
+        outline-offset: 2px;
+      }
+    }
+
+    .mobile-last {
+      order: 1;
+    }
+  }
+}

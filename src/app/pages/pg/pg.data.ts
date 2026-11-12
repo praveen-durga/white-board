@@ -1,17 +1,32 @@
 import { Graha } from '../../shared/services';
 import { PgAspectKind, PgShapeTool, PgTool, WbTool } from './pg.model';
 
-export const PG_TOOLS: { value: PgTool; label: string }[] = [
-  { value: 'line', label: 'Line' },
-  { value: 'free', label: 'Free line' },
-  { value: 'dotted', label: 'Dotted line' },
-  { value: 'arrow', label: 'Arrow' },
-  { value: 'rect', label: 'Rectangle' },
-  { value: 'circle', label: 'Circle' },
-  { value: 'text', label: 'Text' },
-  { value: 'write', label: 'Write' },
-  { value: 'eraser', label: 'Eraser' },
+// icon = SVG path data on a 24x24 stroked grid; shown instead of the label on phones.
+export const PG_TOOLS: { value: PgTool; label: string; icon: string }[] = [
+  { value: 'select', label: 'Select', icon: 'M6 3l13 8 -6 1.5 -3.5 6.5z' },
+  { value: 'line', label: 'Line', icon: 'M5 19L19 5' },
+  { value: 'free', label: 'Free line', icon: 'M3 16c2-7 5-7 6.5-1s4.5 6 6.5 0 3-5 5-5' },
+  { value: 'dotted', label: 'Dotted line', icon: 'M5 19l1 -1M9 15l1 -1M13 11l1 -1M17 7l1 -1' },
+  { value: 'arrow', label: 'Arrow', icon: 'M5 19L19 5M10 5h9v9' },
+  { value: 'rect', label: 'Rectangle', icon: 'M4 6h16v12H4z' },
+  { value: 'circle', label: 'Circle', icon: 'M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0z' },
+  { value: 'text', label: 'Text', icon: 'M5 7V5h14v2M12 5v14M9 19h6' },
+  { value: 'write', label: 'Write', icon: 'M4 20l4.5 -1L19 8.5 15.5 5 5 15.5zM13.5 7l3.5 3.5' },
+  { value: 'eraser', label: 'Eraser', icon: 'M8 20h12M4 15l9.5 -9.5 6 6L12 19H8zM9 10l6 6' },
 ];
+
+// Toolbar control icons (24x24 stroked grid), shown in place of labels on phones.
+export const PG_ICONS = {
+  undo: 'M9 14L4 9l5 -5M4 9h10.5a5.5 5.5 0 0 1 0 11H11',
+  redo: 'M15 14l5 -5 -5 -5M20 9H9.5a5.5 5.5 0 0 0 0 11H13',
+  delete: 'M4 7h16M10 11v6M14 11v6M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12M9 7V4h6v3',
+  clear: 'M3 6h18M8 6V4h8v2M6 6l1 14h10l1 -14M10 10l4 4M14 10l-4 4',
+  export: 'M12 4v11M7 10l5 5 5 -5M5 20h14',
+  reset: 'M4 4v6h6M4.5 15a8 8 0 1 0 2 -8.5L4 10',
+  inkToShape: 'M3 17c1.5 -5 3 -5 4.5 0M12 7h9v10h-9z',
+  planets: 'M12 7a5 5 0 1 0 0 10a5 5 0 1 0 0 -10zM2.5 16c1.5 2 17 -5 19 -9',
+  language: 'M4 5h8M8 3v2M5 11c3 -1 5 -3 6 -6M6 7c1 2 3 4 5 4M13 21l4 -10 4 10M14.5 17h5',
+};
 
 export const LAGNA_ACTUAL = 'asc';
 
@@ -94,10 +109,7 @@ export const ASPECT_ARROW_GAP = 14;
 
 export const ASPECT_LABEL_AT = 0.55;
 
-export const WB_TOOLS: { value: WbTool; label: string }[] = [
-  { value: 'select', label: 'Select' },
-  ...PG_TOOLS,
-];
+export const WB_TOOLS: { value: WbTool; label: string; icon: string }[] = PG_TOOLS;
 
 export const WB_WIDTH = 1200;
 

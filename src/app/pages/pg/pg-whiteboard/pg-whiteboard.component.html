@@ -1,8 +1,16 @@
 <div #palette class="palette" role="toolbar" aria-label="Whiteboard tools">
   <div class="tools">
     @for (item of tools; track item.value) {
-      <button type="button" [class.active]="tool() === item.value" (click)="tool.set(item.value)">
-        {{ item.label }}
+      <button
+        type="button"
+        [class.active]="tool() === item.value"
+        [title]="item.label"
+        (click)="tool.set(item.value)"
+      >
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path [attr.d]="item.icon" />
+        </svg>
+        <span class="tool-label">{{ item.label }}</span>
       </button>
     }
   </div>

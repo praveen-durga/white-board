@@ -22,6 +22,7 @@ import {
   HANDWRITING_LANGUAGES,
   HOUSE_ORDINALS,
   LAGNA_ACTUAL,
+  PG_ICONS,
   PG_DEFAULT_COLOR,
   PG_DEFAULT_WIDTH,
   PG_TOOLS,
@@ -60,6 +61,7 @@ export class PgComponent {
   protected showPlanets = signal(true);
   protected lagnaKey = signal(LAGNA_ACTUAL);
   protected chartAspect = signal<PgChartAspect | null>(null);
+  protected selectedShapeId = signal<number | null>(null);
   protected inkToShape = signal(true);
   protected writeLanguage = signal(HANDWRITING_LANGUAGES[0].value);
 
@@ -73,6 +75,7 @@ export class PgComponent {
   protected languages = HANDWRITING_LANGUAGES;
   protected widths = PG_WIDTHS;
   protected lagnaActual = LAGNA_ACTUAL;
+  protected icons = PG_ICONS;
   protected signOptions = RASI_NAMES.map((name, rasi) => ({ value: `rasi-${rasi}`, label: name }));
   protected grahaOptions = GRAHA_ORDER.map((graha) => ({ value: graha, label: `${graha} Lagna` }));
 
@@ -95,6 +98,10 @@ export class PgComponent {
       grahas: this.showPlanets() ? chart.grahas : [],
     };
   });
+
+  protected hasSelection = computed(
+    () => this.tool() === 'select' && this.shapes().some(({ id }) => id === this.selectedShapeId()),
+  );
 
   protected canUndo = computed(() => this.undoStack().length > 0);
   protected canRedo = computed(() => this.redoStack().length > 0);
@@ -123,7 +130,21 @@ export class PgComponent {
   }
 
   protected onShapeErased(id: number): void {
+    if (this.selectedShapeId() === id) {
+      this.selectedShapeId.set(null);
+    }
     this.commit(this.shapes().filter((shape) => shape.id !== id));
+  }
+
+  protected onShapeChanged(changed: PgShape): void {
+    this.commit(this.shapes().map((shape) => (shape.id === changed.id ? changed : shape)));
+  }
+
+  protected onDeleteSelected(): void {
+    const id = this.selectedShapeId();
+    if (id !== null) {
+      this.onShapeErased(id);
+    }
   }
 
   protected onClearAll(): void {

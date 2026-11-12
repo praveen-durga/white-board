@@ -24,6 +24,7 @@ export type WbChartRenderer = (meta: WbChartMeta) => { href: string; resolvedLag
 export type RenderedChartAspects = { source: string; lines: RenderedAspect[] };
 
 export type PgTool =
+  | 'select'
   | 'line'
   | 'free'
   | 'dotted'
@@ -36,7 +37,7 @@ export type PgTool =
   | 'write'
   | 'eraser';
 
-export type PgShapeTool = Exclude<PgTool, 'eraser' | 'write'>;
+export type PgShapeTool = Exclude<PgTool, 'select' | 'eraser' | 'write'>;
 
 export type ChartPoint = { x: number; y: number };
 
@@ -87,7 +88,7 @@ export type RenderedAspect = {
   cell: string;
 };
 
-export type WbTool = 'select' | PgTool;
+export type WbTool = PgTool;
 
 export type WbStrokeTool = Exclude<PgShapeTool, 'text'>;
 

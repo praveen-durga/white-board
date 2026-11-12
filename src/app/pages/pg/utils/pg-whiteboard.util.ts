@@ -12,7 +12,9 @@ import {
 } from '../../../shared/ui/organisms/rasi-chart/rasi-chart-coordinates';
 import {
   ChartPoint,
+  PgCell,
   PgChartStyle,
+  PgShape,
   WbBox,
   WbDrag,
   WbImage,
@@ -25,6 +27,7 @@ import {
   buildCells,
   renderChartAspects,
   shapePath,
+  toChartPoint,
   toSignPoint,
 } from './pg.util';
 
@@ -231,4 +234,40 @@ export async function exportPng(
   link.href = canvas.toDataURL('image/png');
   link.download = 'whiteboard.png';
   link.click();
+}
+
+export const pgTextSize = (width: number) => 10 + width * 2;
+
+// Chart-section shapes live in sign coordinates; as whiteboard items (chart coordinates) they reuse its bounds and drag maths.
+export function pgShapeToItem(cells: PgCell[], shape: PgShape): WbItem {
+  const points = shape.points.map((point) => toChartPoint(cells, point));
+  if (shape.tool === 'text') {
+    const size = pgTextSize(shape.width);
+    return {
+      id: shape.id,
+      kind: 'text',
+      point: points[0],
+      value: shape.text ?? '',
+      color: shape.color,
+      size,
+    };
+  }
+  return {
+    id: shape.id,
+    kind: 'shape',
+    tool: shape.tool,
+    points,
+    color: shape.color,
+    width: shape.width,
+  };
+}
+
+export function itemToPgShape(cells: PgCell[], shape: PgShape, item: WbItem): PgShape {
+  if (item.kind === 'text') {
+    const width = Math.max(1, Math.round(((item.size - pgTextSize(0)) / 2) * 10) / 10);
+    return { ...shape, points: [toSignPoint(cells, item.point)], width };
+  }
+  return item.kind === 'shape'
+    ? { ...shape, points: item.points.map((point) => toSignPoint(cells, point)) }
+    : shape;
 }

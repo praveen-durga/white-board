@@ -21,20 +21,24 @@
           <button
             type="button"
             [class.active]="tool() === item.value"
+            [title]="item.label"
             (click)="tool.set(item.value)"
           >
-            {{ item.label }}
+            <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path [attr.d]="item.icon" />
+            </svg>
+            <span class="tool-label">{{ item.label }}</span>
           </button>
         }
       </div>
 
-      <label class="field">
-        Colour
+      <label class="field" title="Colour">
+        <span class="tool-label">Colour</span>
         <input type="color" [ngModel]="color()" (ngModelChange)="color.set($event)" />
       </label>
 
-      <label class="field">
-        Width
+      <label class="field" title="Width">
+        <span class="tool-label">Width</span>
         <select [ngModel]="width()" (ngModelChange)="width.set(+$event)">
           @for (option of widths; track option) {
             <option [value]="option">{{ option }}</option>
@@ -42,14 +46,20 @@
         </select>
       </label>
 
-      <label class="field">
+      <label class="field toggle" title="Ink to shape">
         <input type="checkbox" [ngModel]="inkToShape()" (ngModelChange)="inkToShape.set($event)" />
-        Ink to shape
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path [attr.d]="icons.inkToShape" />
+        </svg>
+        <span class="tool-label">Ink to shape</span>
       </label>
 
       @if (isWriteSupported) {
-        <label class="field">
-          Write in
+        <label class="field mobile-last" title="Write in">
+          <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path [attr.d]="icons.language" />
+          </svg>
+          <span class="tool-label">Write in</span>
           <select [ngModel]="writeLanguage()" (ngModelChange)="writeLanguage.set($event)">
             @for (option of languages; track option.value) {
               <option [value]="option.value">{{ option.label }}</option>
@@ -58,16 +68,19 @@
         </label>
       }
 
-      <label class="field">
+      <label class="field toggle" title="Show planets">
         <input
           type="checkbox"
           [ngModel]="showPlanets()"
           (ngModelChange)="onTogglePlanets($event)"
         />
-        Show planets
+        <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path [attr.d]="icons.planets" />
+        </svg>
+        <span class="tool-label">Show planets</span>
       </label>
 
-      <label class="field">
+      <label class="field mobile-last">
         Lagna
         <select [ngModel]="lagnaKey()" (ngModelChange)="lagnaKey.set($event)">
           <option [value]="lagnaActual">Actual Asc</option>
@@ -85,23 +98,52 @@
         <button
           type="button"
           class="reset"
+          title="Reset Lagna"
           [disabled]="lagnaKey() === lagnaActual"
           (click)="lagnaKey.set(lagnaActual)"
         >
-          Reset
+          <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path [attr.d]="icons.reset" />
+          </svg>
+          <span class="tool-label">Reset</span>
         </button>
       </label>
 
       <div class="tools">
-        <button type="button" [disabled]="!canUndo()" (click)="onUndo()">Undo</button>
-        <button type="button" [disabled]="!canRedo()" (click)="onRedo()">Redo</button>
+        <button type="button" title="Undo" [disabled]="!canUndo()" (click)="onUndo()">
+          <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path [attr.d]="icons.undo" />
+          </svg>
+          <span class="tool-label">Undo</span>
+        </button>
+        <button type="button" title="Redo" [disabled]="!canRedo()" (click)="onRedo()">
+          <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path [attr.d]="icons.redo" />
+          </svg>
+          <span class="tool-label">Redo</span>
+        </button>
         <button
           type="button"
+          title="Delete"
+          [disabled]="!hasSelection()"
+          (click)="onDeleteSelected()"
+        >
+          <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path [attr.d]="icons.delete" />
+          </svg>
+          <span class="tool-label">Delete</span>
+        </button>
+        <button
+          type="button"
+          title="Clear all"
           class="danger"
           [disabled]="shapes().length === 0"
           (click)="onClearAll()"
         >
-          Clear all
+          <svg class="tool-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path [attr.d]="icons.clear" />
+          </svg>
+          <span class="tool-label">Clear all</span>
         </button>
       </div>
     </div>
@@ -125,6 +167,9 @@
           [hoveredGraha]="hoveredGraha()"
           (grahaHovered)="hoveredGraha.set($event)"
           [chartAspect]="chartAspect()"
+          [selectedShapeId]="selectedShapeId()"
+          (shapeSelected)="selectedShapeId.set($event)"
+          (shapeChanged)="onShapeChanged($event)"
           (chartAspectChange)="chartAspect.set($event)"
         />
       </div>
@@ -145,6 +190,9 @@
           [hoveredGraha]="hoveredGraha()"
           (grahaHovered)="hoveredGraha.set($event)"
           [chartAspect]="chartAspect()"
+          [selectedShapeId]="selectedShapeId()"
+          (shapeSelected)="selectedShapeId.set($event)"
+          (shapeChanged)="onShapeChanged($event)"
           (chartAspectChange)="chartAspect.set($event)"
         />
       </div>
@@ -152,9 +200,9 @@
 
     <p class="note">
       Drawings follow the sign: whatever you draw in a sign’s house appears in the same sign on the
-      other chart. Use Eraser and click a drawing to remove it. Hover over a planet to see its
-      Parashari aspects on both charts. Right-click a sign for trines, 7th, Mars, Saturn or Rasi
-      aspects.
+      other chart. Use Select to move a drawing, resize it with the corner square or press Delete;
+      or use Eraser and click a drawing to remove it. Hover over a planet to see its Parashari
+      aspects on both charts. Right-click a sign for trines, 7th, Mars, Saturn or Rasi aspects.
     </p>
   </section>
 }
