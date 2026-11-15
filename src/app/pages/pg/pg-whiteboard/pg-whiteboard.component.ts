@@ -28,10 +28,11 @@ import {
   ChartPoint,
   InkPoint,
   PgAspectKind,
-  PgChartStyle,
   WbChartMeta,
   WbChartRenderer,
+  WbChartStyle,
   WbDrag,
+  WbHoverAspect,
   WbImage,
   WbItem,
   WbRenderedItem,
@@ -53,9 +54,14 @@ import {
   exportPng,
   itemBounds,
   readImageFile,
+  renderHoverAspects,
   renderItem,
+  sudarshanaPlanetAt,
   wbTextSize,
 } from '../utils/pg-whiteboard.util';
+
+const hasLagna = (chart: WbChartMeta | undefined) =>
+  chart?.style === 'north' || chart?.style === 'sudarshana';
 
 @Component({
   selector: 'app-pg-whiteboard',
@@ -81,6 +87,7 @@ export class PgWhiteboardComponent {
   protected inkToShape = signal(true);
   protected writeLanguage = signal(HANDWRITING_LANGUAGES[0].value);
   protected northLagna = signal<number | null>(null);
+  protected hoverAspect = signal<WbHoverAspect | null>(null);
   protected contextMenu = signal<{ at: ChartPoint; id: number; house: number | null } | null>(null);
 
   private board = viewChild.required<ElementRef<SVGSVGElement>>('board');
@@ -120,15 +127,14 @@ export class PgWhiteboardComponent {
     };
   });
 
-  protected selectedNorthChart = computed(() => {
+  // North and Sudarshana charts take a Lagna; South charts are fixed by sign.
+  protected selectedLagnaChart = computed(() => {
     const item = this.items().find(({ id }) => id === this.selectedId());
-    return this.tool() === 'select' && item?.kind === 'image' && item.chart?.style === 'north'
-      ? item
-      : null;
+    return this.tool() === 'select' && item?.kind === 'image' && hasLagna(item.chart) ? item : null;
   });
 
   protected lagnaValue = computed(() => {
-    const chart = this.selectedNorthChart()?.chart;
+    const chart = this.selectedLagnaChart()?.chart;
     return chart ? chart.lagnaRasi : this.northLagna();
   });
 
@@ -138,14 +144,38 @@ export class PgWhiteboardComponent {
     return item?.kind === 'image' && item.chart ? { ...item.chart, house: menu!.house } : null;
   });
 
+  protected hoverView = computed(() => {
+    const hover = this.hoverAspect();
+    const item = this.items().find(({ id }) => id === hover?.id);
+    return hover && item ? renderHoverAspects(item, hover, this.boardHeight()) : null;
+  });
+
+  protected isMenuSudarshana = computed(() => this.menuChart()?.style === 'sudarshana');
+
+  protected isMenuHouseHighlighted = computed(() => {
+    const chart = this.menuChart();
+    return chart?.house != null && !!chart.highlights?.includes(chart.house);
+  });
+
   protected menuHeading = computed(() => {
     const chart = this.menuChart();
     if (!chart || chart.house === null) {
       return 'Aspects';
     }
-    const lagna = chart.resolvedLagna ?? null;
-    const sign = lagna === null ? '' : ` · ${RASI_NAMES[(lagna + chart.house) % 12]}`;
-    return `From house ${chart.house + 1}${sign}`;
+    const signAt = (base: number | null | undefined) =>
+      base == null ? null : RASI_NAMES[(base + chart.house!) % 12];
+    if (chart.style === 'sudarshana') {
+      const rings = [
+        ['Lagna', signAt(chart.resolvedLagna)],
+        ['Moon', signAt(chart.resolvedMoon)],
+        ['Sun', signAt(chart.resolvedSun)],
+      ].filter(([, sign]) => sign);
+      return [`House ${chart.house + 1}`, ...rings.map(([ring, sign]) => `${ring} ${sign}`)].join(
+        ' · ',
+      );
+    }
+    const sign = signAt(chart.resolvedLagna);
+    return `From house ${chart.house + 1}${sign ? ` · ${sign}` : ''}`;
   });
 
   protected menuAspectKind = computed(() => {
@@ -187,41 +217,87 @@ export class PgWhiteboardComponent {
     this.selectedId.set(id);
   }
 
-  protected onAddChart(style: PgChartStyle): void {
-    const meta = { style, lagnaRasi: style === 'north' ? this.northLagna() : null };
-    const { href, resolvedLagna } = this.renderChart()(meta);
+  protected onAddChart(style: WbChartStyle): void {
+    const meta = { style, lagnaRasi: style === 'south' ? null : this.northLagna() };
+    const { href, chart } = this.renderMeta(meta);
     const size = WB_SNAPSHOT_SIZE;
-    this.addImage({ href, width: size, height: size }, undefined, { ...meta, resolvedLagna });
+    this.addImage({ href, width: size, height: size }, undefined, chart);
   }
 
-  // With a North chart selected the picker redraws that chart; otherwise it sets the Lagna for the next one added.
+  // With a North or Sudarshana chart selected the picker redraws that chart; otherwise it sets the Lagna for the next one added.
   protected onLagnaChange(lagnaRasi: number | null): void {
     this.northLagna.set(lagnaRasi);
-    const selected = this.selectedNorthChart();
-    if (!selected?.chart) {
-      return;
+    const selected = this.selectedLagnaChart();
+    if (selected) {
+      this.updateChart(selected.id, { lagnaRasi });
     }
-    const meta = { ...selected.chart, lagnaRasi };
-    const { href, resolvedLagna } = this.renderChart()(meta);
-    const chart = { ...meta, resolvedLagna };
-    this.commit(
-      this.items().map((item) => (item.id === selected.id ? { ...selected, href, chart } : item)),
-    );
   }
 
   protected onContextMenu(event: MouseEvent): void {
     const id =
       Number((event.target as Element).closest('[data-item]')?.getAttribute('data-item')) || null;
     const item = this.items().find((entry) => entry.id === id);
-    if (item?.kind !== 'image' || item.chart?.style !== 'north') {
+    if (item?.kind !== 'image' || !item.chart || !hasLagna(item.chart)) {
       this.contextMenu.set(null);
       return;
     }
     event.preventDefault();
     this.tool.set('select');
     this.selectedId.set(item.id);
-    const house = chartHouseAt(item.box, this.toBoardPoint(event));
+    const house = chartHouseAt(item.chart.style, item.box, this.toBoardPoint(event));
     this.contextMenu.set({ at: { x: event.clientX, y: event.clientY }, id: item.id, house });
+  }
+
+  protected onMenuHighlight(): void {
+    const menu = this.closeMenu();
+    const chart = this.menuItem(menu)?.chart;
+    if (!menu || !chart || menu.house === null) {
+      return;
+    }
+    const current = chart.highlights ?? [];
+    const highlights = current.includes(menu.house)
+      ? current.filter((house) => house !== menu.house)
+      : [...current, menu.house];
+    this.updateChart(menu.id, { highlights });
+  }
+
+  protected onMenuClearHighlights(): void {
+    const menu = this.closeMenu();
+    if (menu) {
+      this.updateChart(menu.id, { highlights: [] });
+    }
+  }
+
+  protected onMenuTogglePlanets(): void {
+    const menu = this.closeMenu();
+    const chart = this.menuItem(menu)?.chart;
+    if (menu && chart) {
+      this.updateChart(menu.id, { hidePlanets: !chart.hidePlanets });
+    }
+  }
+
+  // Sudarshana dasha: the running year of life lights up one house, moving a house a year from the 1st.
+  protected onMenuYear(): void {
+    const menu = this.closeMenu();
+    const chart = this.menuItem(menu)?.chart;
+    if (!menu || !chart) {
+      return;
+    }
+    const answer = window.prompt(
+      'Running year of life (1 = year of birth, age 30 = year 31)',
+      String(chart.year ?? ''),
+    );
+    const year = Math.round(Number(answer));
+    if (answer !== null && Number.isFinite(year) && year >= 1) {
+      this.updateChart(menu.id, { year });
+    }
+  }
+
+  protected onMenuClearYear(): void {
+    const menu = this.closeMenu();
+    if (menu) {
+      this.updateChart(menu.id, { year: undefined });
+    }
   }
 
   protected onMenuLagna(lagnaRasi: number | null): void {
@@ -283,6 +359,7 @@ export class PgWhiteboardComponent {
   }
 
   protected onPointerMove(event: PointerEvent): void {
+    this.updateHover(event);
     const drag = this.drag;
     if (drag) {
       const point = this.toBoardPoint(event);
@@ -426,6 +503,56 @@ export class PgWhiteboardComponent {
       size: Math.max(height, wbTextSize(this.width())),
     };
     this.commit([...this.items(), item]);
+  }
+
+  // Hovering a planet on a Sudarshana Chakra shows its aspects; nothing while dragging or drawing.
+  protected updateHover(event: PointerEvent | null): void {
+    let next: WbHoverAspect | null = null;
+    if (event && !this.drag && !this.draft().length) {
+      const id =
+        Number((event.target as Element).closest('[data-item]')?.getAttribute('data-item')) || null;
+      const item = this.items().find((entry) => entry.id === id);
+      const spot = item ? sudarshanaPlanetAt(item, this.toBoardPoint(event)) : null;
+      next =
+        spot && item
+          ? { id: item.id, graha: spot.graha, ring: spot.ring, house: spot.house }
+          : null;
+    }
+    const current = this.hoverAspect();
+    if (
+      current?.id !== next?.id ||
+      current?.graha !== next?.graha ||
+      current?.ring !== next?.ring ||
+      current?.house !== next?.house
+    ) {
+      this.hoverAspect.set(next);
+    }
+  }
+
+  private renderMeta(meta: WbChartMeta): { href: string; chart: WbChartMeta } {
+    const { href, ...resolved } = this.renderChart()(meta);
+    return { href, chart: { ...meta, ...resolved } };
+  }
+
+  // Redraws a chart image with changed settings as one undoable step.
+  private updateChart(id: number, patch: Partial<WbChartMeta>): void {
+    const item = this.items().find((entry) => entry.id === id);
+    if (item?.kind !== 'image' || !item.chart) {
+      return;
+    }
+    const { href, chart } = this.renderMeta({ ...item.chart, ...patch });
+    this.commit(this.items().map((entry) => (entry.id === id ? { ...item, href, chart } : entry)));
+  }
+
+  private closeMenu() {
+    const menu = this.contextMenu();
+    this.contextMenu.set(null);
+    return menu;
+  }
+
+  private menuItem(menu: { id: number } | null) {
+    const item = this.items().find(({ id }) => id === menu?.id);
+    return item?.kind === 'image' ? item : null;
   }
 
   private toShapeItem(tool: WbStrokeTool, points: ChartPoint[]): WbItem {

@@ -1,5 +1,7 @@
 import {
   DOTTED_TOOLS,
+  HOUSE_ORDINALS,
+  PG_ASPECTS,
   WB_EXPORT_SCALE,
   WB_IMAGE_MAX,
   WB_INLINE_STYLES,
@@ -16,10 +18,13 @@ import {
   PgChartStyle,
   PgShape,
   WbBox,
+  WbChartStyle,
   WbDrag,
+  WbHoverAspect,
   WbImage,
   WbItem,
   WbRenderedItem,
+  WbSudarshanaHotspot,
 } from '../pg.model';
 import {
   arrowHead,
@@ -30,35 +35,71 @@ import {
   toChartPoint,
   toSignPoint,
 } from './pg.util';
+import { SUDARSHANA_CELLS, SUDARSHANA_RING_CELLS, sudarshanaHotspotAt } from './pg-sudarshana.util';
 
 // With Lagna = Aries the rasi-indexed North cells are in house order: HOUSE_CELLS[0] is the 1st house.
 const HOUSE_CELLS = buildCells('north', 0);
 
 const CHART_SIZE = 400;
 
-// 0-based house of a North chart image under a board point, or null when outside it.
-export function chartHouseAt(box: WbBox, point: ChartPoint): number | null {
-  const local = {
-    x: ((point.x - box.x) / box.width) * CHART_SIZE,
-    y: ((point.y - box.y) / box.height) * CHART_SIZE,
+// Both cell sets are in house order (index 0 = the 1st house) on the same 400x400 grid.
+const houseCells = (style: WbChartStyle) =>
+  style === 'sudarshana' ? SUDARSHANA_CELLS : HOUSE_CELLS;
+
+// 0-based house of a North or Sudarshana chart image under a board point, or null when outside it.
+const toChartGrid = (box: WbBox, point: ChartPoint): ChartPoint => ({
+  x: ((point.x - box.x) / box.width) * CHART_SIZE,
+  y: ((point.y - box.y) / box.height) * CHART_SIZE,
+});
+
+const chartTransform = ({ x, y, width, height }: WbBox) =>
+  `translate(${x} ${y}) scale(${width / CHART_SIZE} ${height / CHART_SIZE})`;
+
+export function chartHouseAt(style: WbChartStyle, box: WbBox, point: ChartPoint): number | null {
+  return toSignPoint(houseCells(style), toChartGrid(box, point)).rasi;
+}
+
+// The Sudarshana planet label under a board point, if the item is a Sudarshana Chakra.
+export function sudarshanaPlanetAt(item: WbItem, point: ChartPoint): WbSudarshanaHotspot | null {
+  if (item.kind !== 'image' || item.chart?.style !== 'sudarshana' || !item.chart.hotspots) {
+    return null;
+  }
+  return sudarshanaHotspotAt(item.chart.hotspots, toChartGrid(item.box, point));
+}
+
+// A hovered planet's Parashari aspects, counted within its own ring, plus a caption for under (or over) the chart.
+export function renderHoverAspects(item: WbItem, hover: WbHoverAspect, boardHeight: number) {
+  if (item.kind !== 'image') {
+    return null;
+  }
+  const counts = PG_ASPECTS[hover.graha];
+  const { box } = item;
+  const below = box.y + box.height + 18;
+  return {
+    ...renderChartAspects(SUDARSHANA_RING_CELLS[hover.ring], hover.house, counts),
+    transform: chartTransform(box),
+    caption: {
+      x: box.x + box.width / 2,
+      y: below <= boardHeight - 4 ? below : box.y - 8,
+      value: `${hover.graha} aspects ${counts.map((count) => HOUSE_ORDINALS[count - 1]).join(', ')}`,
+    },
   };
-  return toSignPoint(HOUSE_CELLS, local).rasi;
 }
 
 function renderWbChartAspects(item: WbItem): WbRenderedItem['chartAspects'] {
   const aspect = item.kind === 'image' ? item.chart?.aspect : undefined;
-  if (item.kind !== 'image' || !aspect) {
+  if (item.kind !== 'image' || !item.chart || !aspect) {
     return null;
   }
-  const lagna = item.chart?.resolvedLagna ?? null;
-  if (aspect.kind === 'rasi' && lagna === null) {
+  const lagna = item.chart.resolvedLagna ?? null;
+  // A Sudarshana house holds three different signs, so sign-based (rasi) aspects don't apply.
+  if (aspect.kind === 'rasi' && (lagna === null || item.chart.style === 'sudarshana')) {
     return null;
   }
   const counts = aspectCounts(aspect.kind, ((lagna ?? 0) + aspect.house) % 12);
-  const { x, y, width, height } = item.box;
   return {
-    ...renderChartAspects(HOUSE_CELLS, aspect.house, counts),
-    transform: `translate(${x} ${y}) scale(${width / CHART_SIZE} ${height / CHART_SIZE})`,
+    ...renderChartAspects(houseCells(item.chart.style), aspect.house, counts),
+    transform: chartTransform(item.box),
   };
 }
 

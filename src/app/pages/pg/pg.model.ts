@@ -11,15 +11,43 @@ export type PgChartAspect = { kind: PgAspectKind; rasi: number };
 // house = 0-based offset from Lagna, so it stays put when the chart's Lagna changes.
 export type WbChartAspect = { kind: PgAspectKind; house: number };
 
+export type WbChartStyle = PgChartStyle | 'sudarshana';
+
 // resolvedLagna = the sign actually in the 1st house when rendered (null when unknown, e.g. a blank chart).
+// resolvedMoon/resolvedSun, hidePlanets, highlights (0-based houses) and year (running year of life) are Sudarshana only.
 export type WbChartMeta = {
-  style: PgChartStyle;
+  style: WbChartStyle;
   lagnaRasi: number | null;
   resolvedLagna?: number | null;
+  resolvedMoon?: number | null;
+  resolvedSun?: number | null;
   aspect?: WbChartAspect;
+  hidePlanets?: boolean;
+  highlights?: number[];
+  year?: number;
+  hotspots?: WbSudarshanaHotspot[];
 };
 
-export type WbChartRenderer = (meta: WbChartMeta) => { href: string; resolvedLagna: number | null };
+// Where a planet label sits on a Sudarshana Chakra (400x400 chart grid), so hovering it can show its aspects.
+export type WbSudarshanaHotspot = {
+  graha: Graha;
+  ring: number;
+  house: number;
+  x: number;
+  y: number;
+};
+
+export type WbHoverAspect = { id: number; graha: Graha; ring: number; house: number };
+
+export type WbChartRendered = {
+  href: string;
+  resolvedLagna: number | null;
+  resolvedMoon?: number | null;
+  resolvedSun?: number | null;
+  hotspots?: WbSudarshanaHotspot[];
+};
+
+export type WbChartRenderer = (meta: WbChartMeta) => WbChartRendered;
 
 export type RenderedChartAspects = { source: string; lines: RenderedAspect[] };
 

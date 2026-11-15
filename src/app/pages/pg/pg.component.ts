@@ -18,6 +18,7 @@ import { PgDrawingBoardComponent } from './pg-drawing-board/pg-drawing-board.com
 import { PgWhiteboardComponent } from './pg-whiteboard/pg-whiteboard.component';
 import { isHandwritingSupported } from './utils/pg-handwriting.util';
 import { emptyChart } from './utils/pg-whiteboard.util';
+import { sudarshanaChart } from './utils/pg-sudarshana.util';
 import {
   HANDWRITING_LANGUAGES,
   HOUSE_ORDINALS,
@@ -184,7 +185,11 @@ export class PgComponent {
   }
 
   // A chosen Lagna is applied to the live board just long enough to snapshot it, then the page's Lagna is restored.
-  protected renderChart: WbChartRenderer = ({ style, lagnaRasi }) => {
+  protected renderChart: WbChartRenderer = (meta) => {
+    const { style, lagnaRasi } = meta;
+    if (style === 'sudarshana') {
+      return sudarshanaChart(this.chart(), meta, WB_SNAPSHOT_SIZE);
+    }
     this.hoveredGraha.set(null);
     const findBoard = () => this.boards().find((item) => item.chartStyle() === style);
     if (!findBoard()) {

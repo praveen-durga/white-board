@@ -72,7 +72,7 @@
       <select
         [ngModel]="lagnaValue()"
         (ngModelChange)="onLagnaChange($event)"
-        aria-label="Lagna for North chart"
+        aria-label="Lagna for North or Sudarshana chart"
       >
         <option [ngValue]="null">Chart Lagna</option>
         @for (option of signOptions; track option.value) {
@@ -82,6 +82,7 @@
     </label>
     <button type="button" (click)="onAddChart('north')">Add North chart</button>
     <button type="button" (click)="onAddChart('south')">Add South chart</button>
+    <button type="button" (click)="onAddChart('sudarshana')">Add Sudarshana Chakra</button>
   </div>
 
   <div class="tools">
@@ -110,6 +111,7 @@
     (pointermove)="onPointerMove($event)"
     (pointerup)="onPointerUp()"
     (pointercancel)="onPointerUp()"
+    (pointerleave)="updateHover(null)"
     (keydown)="onKeyDown($event)"
     (contextmenu)="onContextMenu($event)"
     (dragover)="onDragOver($event)"
@@ -174,6 +176,27 @@
       </g>
     }
 
+    @if (hoverView(); as view) {
+      <g class="wb-ui hover-aspects">
+        <g class="chart-aspects" [attr.transform]="view.transform">
+          <polygon class="aspect-source" [attr.points]="view.source" />
+          @for (aspect of view.lines; track aspect.aspect) {
+            <polygon class="aspect-cell" [attr.points]="aspect.cell" />
+            <path class="aspect-line" [attr.d]="aspect.path" />
+            @if (aspect.arrowHead) {
+              <path class="aspect-line" [attr.d]="aspect.arrowHead" />
+            }
+            <text class="aspect-label" [attr.x]="aspect.label.x" [attr.y]="aspect.label.y">
+              {{ aspect.aspect }}
+            </text>
+          }
+        </g>
+        <text class="aspect-label" [attr.x]="view.caption.x" [attr.y]="view.caption.y">
+          {{ view.caption.value }}
+        </text>
+      </g>
+    }
+
     @for (path of writingPaths(); track $index) {
       <path class="draft" [attr.d]="path" [attr.stroke]="color()" [attr.stroke-width]="width()" />
     }
@@ -216,10 +239,49 @@
     [heading]="menuHeading()"
     [activeKind]="menuAspectKind()"
     [isRasiDisabled]="menuChart()?.resolvedLagna == null"
+    [hideRasi]="isMenuSudarshana()"
     (picked)="onMenuAspect($event)"
     (closed)="contextMenu.set(null)"
   >
-    <div class="menu-title">Lagna</div>
+    @if (menuChart(); as chart) {
+      @if (isMenuSudarshana()) {
+        <div class="menu-title">Sudarshana Chakra</div>
+        @if (chart.house !== null) {
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            [attr.aria-checked]="isMenuHouseHighlighted()"
+            [class.active]="isMenuHouseHighlighted()"
+            (click)="onMenuHighlight()"
+          >
+            Highlight house {{ chart.house + 1 }}
+          </button>
+        }
+        @if (chart.highlights?.length) {
+          <button type="button" role="menuitem" (click)="onMenuClearHighlights()">
+            Clear highlights
+          </button>
+        }
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          [attr.aria-checked]="!chart.hidePlanets"
+          [class.active]="!chart.hidePlanets"
+          (click)="onMenuTogglePlanets()"
+        >
+          Show planets
+        </button>
+        <button type="button" role="menuitem" (click)="onMenuYear()">
+          {{ chart.year ? 'Dasha year ' + chart.year + '…' : 'Dasha year…' }}
+        </button>
+        @if (chart.year) {
+          <button type="button" role="menuitem" (click)="onMenuClearYear()">
+            Clear dasha year
+          </button>
+        }
+      }
+    }
+    <div class="menu-title">{{ isMenuSudarshana() ? 'Lagna (inner ring)' : 'Lagna' }}</div>
     <button
       type="button"
       role="menuitemradio"
@@ -245,7 +307,10 @@
 
 <p class="note">
   Click the board, then paste an image (Cmd/Ctrl+V) or drop image files onto it. Select: drag to
-  move, drag the corner square to resize, Delete to remove. Right-click a North chart (or select it
-  and use Lagna) to change its Lagna. Change Board width × height for more space; the board scrolls
-  sideways when wider than the page.
+  move, drag the corner square to resize, Delete to remove. Right-click a North chart or Sudarshana
+  Chakra (or select it and use Lagna) to change its Lagna. Right-click a Sudarshana Chakra house to
+  show aspects, highlight houses, toggle planets or mark a Sudarshana dasha year; its rings count
+  houses from the Lagna (inner), Moon (middle) and Sun (outer). Hover a planet on it to see its
+  aspects. Change Board width × height for more space; the board scrolls sideways when wider than
+  the page.
 </p>

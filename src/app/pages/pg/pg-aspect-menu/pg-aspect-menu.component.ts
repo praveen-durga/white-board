@@ -31,13 +31,16 @@ export class PgAspectMenuComponent {
   heading = input.required<string>();
   activeKind = input<PgAspectKind | null>(null);
   isRasiDisabled = input(false);
+  hideRasi = input(false);
 
   picked = output<PgAspectKind | null>();
   closed = output<void>();
 
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  protected options = PG_ASPECT_OPTIONS;
+  protected options = computed(() =>
+    this.hideRasi() ? PG_ASPECT_OPTIONS.filter(({ value }) => value !== 'rasi') : PG_ASPECT_OPTIONS,
+  );
 
   protected left = computed(() =>
     Math.max(WB_MENU_EDGE, Math.min(this.at().x, window.innerWidth - WB_MENU_WIDTH - WB_MENU_EDGE)),
