@@ -148,7 +148,12 @@
       </div>
     </div>
 
-    <p class="aspect-summary">{{ aspectSummary() || 'Hover over a planet to see its aspects.' }}</p>
+    <p class="aspect-summary">
+      {{
+        aspectSummary() ||
+          'Hover over a planet to see its aspects, or over a sign to see which planets aspect it.'
+      }}
+    </p>
 
     <div class="charts">
       <div class="chart-item">
@@ -166,6 +171,8 @@
           [writeLanguage]="writeLanguage()"
           [hoveredGraha]="hoveredGraha()"
           (grahaHovered)="hoveredGraha.set($event)"
+          [hoveredRasi]="hoveredRasi()"
+          (rasiHovered)="hoveredRasi.set($event)"
           [chartAspect]="chartAspect()"
           [selectedShapeId]="selectedShapeId()"
           (shapeSelected)="selectedShapeId.set($event)"
@@ -189,6 +196,8 @@
           [writeLanguage]="writeLanguage()"
           [hoveredGraha]="hoveredGraha()"
           (grahaHovered)="hoveredGraha.set($event)"
+          [hoveredRasi]="hoveredRasi()"
+          (rasiHovered)="hoveredRasi.set($event)"
           [chartAspect]="chartAspect()"
           [selectedShapeId]="selectedShapeId()"
           (shapeSelected)="selectedShapeId.set($event)"

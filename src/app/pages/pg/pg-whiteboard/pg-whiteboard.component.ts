@@ -56,7 +56,7 @@ import {
   readImageFile,
   renderHoverAspects,
   renderItem,
-  sudarshanaPlanetAt,
+  sudarshanaHoverAt,
   wbTextSize,
 } from '../utils/pg-whiteboard.util';
 
@@ -505,18 +505,15 @@ export class PgWhiteboardComponent {
     this.commit([...this.items(), item]);
   }
 
-  // Hovering a planet on a Sudarshana Chakra shows its aspects; nothing while dragging or drawing.
+  // Hovering a Sudarshana planet shows its aspects, hovering a sign the planets aspecting it; nothing while dragging or drawing.
   protected updateHover(event: PointerEvent | null): void {
     let next: WbHoverAspect | null = null;
     if (event && !this.drag && !this.draft().length) {
       const id =
         Number((event.target as Element).closest('[data-item]')?.getAttribute('data-item')) || null;
       const item = this.items().find((entry) => entry.id === id);
-      const spot = item ? sudarshanaPlanetAt(item, this.toBoardPoint(event)) : null;
-      next =
-        spot && item
-          ? { id: item.id, graha: spot.graha, ring: spot.ring, house: spot.house }
-          : null;
+      const spot = item ? sudarshanaHoverAt(item, this.toBoardPoint(event)) : null;
+      next = spot && item ? { id: item.id, ...spot } : null;
     }
     const current = this.hoverAspect();
     if (

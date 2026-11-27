@@ -1,5 +1,5 @@
 import { BirthDetails } from '../../../shared/models';
-import { CITY_LABELS, findCityByLabel } from '../../../shared/utils';
+import { CITY_LABELS, findCityByLabel, GRAHA_ABBREVIATIONS } from '../../../shared/utils';
 import { D1Chart, Graha } from '../../../shared/services';
 import { REGION_POLYGONS_BY_STYLE } from '../../../shared/ui/organisms/rasi-chart/rasi-chart-coordinates';
 import {
@@ -22,7 +22,9 @@ import {
   PgShape,
   PgShapeTool,
   RenderedAspect,
+  PgIncomingAspect,
   RenderedChartAspects,
+  RenderedIncomingAspect,
   RenderedShape,
   SignPoint,
 } from '../pg.model';
@@ -225,6 +227,41 @@ export function renderAspects(
       cell: cellPoints(cells[rasi]),
     };
   });
+}
+
+// Planets (each at a cell index) whose Parashari aspect lands on the target cell.
+export function incomingAspects(
+  placements: { graha: Graha; at: number }[],
+  target: number,
+): PgIncomingAspect[] {
+  return placements
+    .map(({ graha, at }) => ({ graha, from: at, aspect: ((target - at + 12) % 12) + 1 }))
+    .filter(({ graha, aspect }) => PG_ASPECTS[graha].includes(aspect));
+}
+
+// One arrow per aspecting cell into the target, labelled with the planets there and the aspect count (e.g. "Ma Ju 8"); cells must be in zodiac/house order.
+export function renderIncomingAspects(
+  cells: PgCell[],
+  target: number,
+  incoming: PgIncomingAspect[],
+): { source: string; lines: RenderedIncomingAspect[] } {
+  const froms = [...new Set(incoming.map(({ from }) => from))];
+  return {
+    source: cellPoints(cells[target]),
+    lines: froms.map((from) => {
+      const grahas = incoming.filter((entry) => entry.from === from);
+      const [line] = renderAspects(cells, {
+        fromRasi: from,
+        aspects: [{ rasi: target, aspect: grahas[0].aspect, grahas: [] }],
+      });
+      return {
+        ...line,
+        key: String(from),
+        cell: cellPoints(cells[from]),
+        text: `${grahas.map(({ graha }) => GRAHA_ABBREVIATIONS[graha]).join(' ')} ${grahas[0].aspect}`,
+      };
+    }),
+  };
 }
 
 export function buildDefaultPgDetails(now: Date): BirthDetails {

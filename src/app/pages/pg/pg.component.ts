@@ -31,7 +31,7 @@ import {
   WB_SNAPSHOT_SIZE,
 } from './pg.data';
 import { PgChartAspect, PgDraft, PgShape, PgTool, WbChartRenderer } from './pg.model';
-import { buildAspectView, buildDefaultPgDetails } from './utils/pg.util';
+import { buildAspectView, buildDefaultPgDetails, incomingAspects } from './utils/pg.util';
 
 @Component({
   selector: 'app-pg',
@@ -59,6 +59,7 @@ export class PgComponent {
   protected undoStack = signal<PgShape[][]>([]);
   protected redoStack = signal<PgShape[][]>([]);
   protected hoveredGraha = signal<Graha | null>(null);
+  protected hoveredRasi = signal<number | null>(null);
   protected showPlanets = signal(true);
   protected lagnaKey = signal(LAGNA_ACTUAL);
   protected chartAspect = signal<PgChartAspect | null>(null);
@@ -108,6 +109,18 @@ export class PgComponent {
   protected canRedo = computed(() => this.redoStack().length > 0);
 
   protected aspectSummary = computed(() => {
+    const rasi = this.hoveredRasi();
+    const shown = this.displayChart();
+    if (rasi !== null && shown) {
+      const placements = shown.grahas.map(({ graha, rasi: at }) => ({ graha, at }));
+      const names = incomingAspects(placements, rasi).map(
+        ({ graha, from, aspect }) =>
+          `${graha} from ${RASI_NAMES[from]} (${HOUSE_ORDINALS[aspect - 1]})`,
+      );
+      return names.length
+        ? `${RASI_NAMES[rasi]} is aspected by ${names.join('; ')}.`
+        : `No planet aspects ${RASI_NAMES[rasi]}.`;
+    }
     const chart = this.chart();
     const graha = this.hoveredGraha();
     if (!chart || !graha) {
@@ -124,6 +137,7 @@ export class PgComponent {
   protected onTogglePlanets(isShown: boolean): void {
     this.showPlanets.set(isShown);
     this.hoveredGraha.set(null);
+    this.hoveredRasi.set(null);
   }
 
   protected onShapeAdded(draft: PgDraft): void {
@@ -191,6 +205,7 @@ export class PgComponent {
       return sudarshanaChart(this.chart(), meta, WB_SNAPSHOT_SIZE);
     }
     this.hoveredGraha.set(null);
+    this.hoveredRasi.set(null);
     const findBoard = () => this.boards().find((item) => item.chartStyle() === style);
     if (!findBoard()) {
       return { href: emptyChart(style, WB_SNAPSHOT_SIZE, lagnaRasi), resolvedLagna: lagnaRasi };

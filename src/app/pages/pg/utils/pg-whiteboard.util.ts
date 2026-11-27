@@ -24,13 +24,15 @@ import {
   WbImage,
   WbItem,
   WbRenderedItem,
-  WbSudarshanaHotspot,
 } from '../pg.model';
+import { RASI_NAMES } from '../../../shared/utils';
 import {
   arrowHead,
   aspectCounts,
   buildCells,
+  incomingAspects,
   renderChartAspects,
+  renderIncomingAspects,
   shapePath,
   toChartPoint,
   toSignPoint,
@@ -59,30 +61,81 @@ export function chartHouseAt(style: WbChartStyle, box: WbBox, point: ChartPoint)
   return toSignPoint(houseCells(style), toChartGrid(box, point)).rasi;
 }
 
-// The Sudarshana planet label under a board point, if the item is a Sudarshana Chakra.
-export function sudarshanaPlanetAt(item: WbItem, point: ChartPoint): WbSudarshanaHotspot | null {
-  if (item.kind !== 'image' || item.chart?.style !== 'sudarshana' || !item.chart.hotspots) {
+const SUDARSHANA_RING_NAMES = ['Lagna', 'Moon', 'Sun'];
+
+const polygonPoints = (cell: PgCell) => cell.polygon.map(({ x, y }) => `${x},${y}`).join(' ');
+
+// What a board point is over on a Sudarshana Chakra: a planet label first, else a sign in one of the rings.
+// Signs only respond once the chakra has planets drawn (otherwise there is nothing to aspect them).
+export function sudarshanaHoverAt(
+  item: WbItem,
+  point: ChartPoint,
+): Omit<WbHoverAspect, 'id'> | null {
+  const hotspots =
+    item.kind === 'image' && item.chart?.style === 'sudarshana' ? item.chart.hotspots : null;
+  if (item.kind !== 'image' || !hotspots?.length) {
     return null;
   }
-  return sudarshanaHotspotAt(item.chart.hotspots, toChartGrid(item.box, point));
+  const local = toChartGrid(item.box, point);
+  const planet = sudarshanaHotspotAt(hotspots, local);
+  if (planet) {
+    return { graha: planet.graha, ring: planet.ring, house: planet.house };
+  }
+  const ring = SUDARSHANA_RING_CELLS.findIndex((cells) => toSignPoint(cells, local).rasi !== null);
+  return ring < 0
+    ? null
+    : { graha: null, ring, house: toSignPoint(SUDARSHANA_RING_CELLS[ring], local).rasi! };
 }
 
-// A hovered planet's Parashari aspects, counted within its own ring, plus a caption for under (or over) the chart.
+// Hover overlay, counted within the hovered ring with Parashari aspects. A planet shows the houses it aspects;
+// a sign shows the planets aspecting it, one arrow per aspecting house. Caption goes under (or over) the chart.
 export function renderHoverAspects(item: WbItem, hover: WbHoverAspect, boardHeight: number) {
-  if (item.kind !== 'image') {
+  if (item.kind !== 'image' || !item.chart) {
     return null;
   }
-  const counts = PG_ASPECTS[hover.graha];
-  const { box } = item;
+  const cells = SUDARSHANA_RING_CELLS[hover.ring];
+  const { box, chart } = item;
   const below = box.y + box.height + 18;
+  const caption = (value: string) => ({
+    x: box.x + box.width / 2,
+    y: below <= boardHeight - 4 ? below : box.y - 8,
+    value,
+  });
+  const base = [chart.resolvedLagna, chart.resolvedMoon, chart.resolvedSun][hover.ring];
+  const place = `${SUDARSHANA_RING_NAMES[hover.ring]} ring, house ${hover.house + 1}`;
+  const sign = base == null ? place : `${RASI_NAMES[(base + hover.house) % 12]} (${place})`;
+
+  if (hover.graha) {
+    const counts = PG_ASPECTS[hover.graha];
+    const { source, lines } = renderChartAspects(cells, hover.house, counts);
+    return {
+      transform: chartTransform(box),
+      source,
+      lines: lines.map((line) => ({
+        ...line,
+        key: String(line.aspect),
+        text: String(line.aspect),
+      })),
+      caption: caption(
+        `${hover.graha} aspects ${counts.map((count) => HOUSE_ORDINALS[count - 1]).join(', ')}`,
+      ),
+    };
+  }
+
+  // Planets in this ring whose aspect count from their house lands on the hovered house.
+  const incoming = incomingAspects(
+    (chart.hotspots ?? [])
+      .filter(({ ring }) => ring === hover.ring)
+      .map(({ graha, house }) => ({ graha, at: house })),
+    hover.house,
+  );
+  const names = incoming.map(({ graha, aspect }) => `${graha} ${HOUSE_ORDINALS[aspect - 1]}`);
   return {
-    ...renderChartAspects(SUDARSHANA_RING_CELLS[hover.ring], hover.house, counts),
     transform: chartTransform(box),
-    caption: {
-      x: box.x + box.width / 2,
-      y: below <= boardHeight - 4 ? below : box.y - 8,
-      value: `${hover.graha} aspects ${counts.map((count) => HOUSE_ORDINALS[count - 1]).join(', ')}`,
-    },
+    ...renderIncomingAspects(cells, hover.house, incoming),
+    caption: caption(
+      names.length ? `${sign} aspected by ${names.join(', ')}` : `${sign}: no planetary aspects`,
+    ),
   };
 }
 

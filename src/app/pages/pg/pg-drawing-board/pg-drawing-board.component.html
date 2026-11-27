@@ -38,6 +38,22 @@
       <polygon class="aspect-source" [attr.points]="sourceCell()" />
     }
 
+    @if (incomingView(); as view) {
+      <polygon class="aspect-source" [attr.points]="view.source" />
+      @for (aspect of view.lines; track aspect.key) {
+        <g class="aspect">
+          <polygon class="aspect-cell" [attr.points]="aspect.cell" />
+          <path class="aspect-line" [attr.d]="aspect.path" />
+          @if (aspect.arrowHead) {
+            <path class="aspect-line" [attr.d]="aspect.arrowHead" />
+          }
+          <text class="aspect-label" [attr.x]="aspect.label.x" [attr.y]="aspect.label.y">
+            {{ aspect.text }}
+          </text>
+        </g>
+      }
+    }
+
     @for (aspect of renderedAspects(); track aspect.aspect) {
       <g class="aspect">
         <polygon class="aspect-cell" [attr.points]="aspect.cell" />

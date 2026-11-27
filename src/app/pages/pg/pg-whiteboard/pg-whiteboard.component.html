@@ -180,14 +180,14 @@
       <g class="wb-ui hover-aspects">
         <g class="chart-aspects" [attr.transform]="view.transform">
           <polygon class="aspect-source" [attr.points]="view.source" />
-          @for (aspect of view.lines; track aspect.aspect) {
+          @for (aspect of view.lines; track aspect.key) {
             <polygon class="aspect-cell" [attr.points]="aspect.cell" />
             <path class="aspect-line" [attr.d]="aspect.path" />
             @if (aspect.arrowHead) {
               <path class="aspect-line" [attr.d]="aspect.arrowHead" />
             }
             <text class="aspect-label" [attr.x]="aspect.label.x" [attr.y]="aspect.label.y">
-              {{ aspect.aspect }}
+              {{ aspect.text }}
             </text>
           }
         </g>
@@ -311,6 +311,6 @@
   Chakra (or select it and use Lagna) to change its Lagna. Right-click a Sudarshana Chakra house to
   show aspects, highlight houses, toggle planets or mark a Sudarshana dasha year; its rings count
   houses from the Lagna (inner), Moon (middle) and Sun (outer). Hover a planet on it to see its
-  aspects. Change Board width × height for more space; the board scrolls sideways when wider than
-  the page.
+  aspects, or hover a sign to see which planets aspect it. Change Board width × height for more
+  space; the board scrolls sideways when wider than the page.
 </p>

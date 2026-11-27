@@ -31,8 +31,10 @@ import {
   aspectCounts,
   buildAspectView,
   buildCells,
+  incomingAspects,
   renderAspects,
   renderChartAspects,
+  renderIncomingAspects,
   renderShape,
   shapePath,
   shapePoints,
@@ -64,6 +66,7 @@ export class PgDrawingBoardComponent {
   color = input.required<string>();
   width = input.required<number>();
   hoveredGraha = input<Graha | null>(null);
+  hoveredRasi = input<number | null>(null);
   inkToShape = input(true);
   writeLanguage = input('en');
   chartAspect = input<PgChartAspect | null>(null);
@@ -72,6 +75,7 @@ export class PgDrawingBoardComponent {
   shapeAdded = output<PgDraft>();
   shapeErased = output<number>();
   grahaHovered = output<Graha | null>();
+  rasiHovered = output<number | null>();
   chartAspectChange = output<PgChartAspect | null>();
   shapeSelected = output<number | null>();
   shapeChanged = output<PgShape>();
@@ -116,6 +120,16 @@ export class PgDrawingBoardComponent {
   protected renderedAspects = computed<RenderedAspect[]>(() => {
     const graha = this.hoveredGraha();
     return graha ? renderAspects(this.cells(), buildAspectView(this.chart(), graha)) : [];
+  });
+
+  // Hovering a sign: arrows from every planet aspecting it.
+  protected incomingView = computed(() => {
+    const rasi = this.hoveredRasi();
+    if (rasi === null) {
+      return null;
+    }
+    const placements = this.chart().grahas.map(({ graha, rasi: at }) => ({ graha, at }));
+    return renderIncomingAspects(this.cells(), rasi, incomingAspects(placements, rasi));
   });
 
   // Cells are indexed by rasi, so counting forward through them walks the zodiac from the clicked sign.
@@ -280,6 +294,9 @@ export class PgDrawingBoardComponent {
     if (this.hoveredGraha()) {
       this.grahaHovered.emit(null);
     }
+    if (this.hoveredRasi() !== null) {
+      this.rasiHovered.emit(null);
+    }
   }
 
   // Clicking a drawing selects it and starts a move; the corner handle resizes the selected one.
@@ -315,6 +332,14 @@ export class PgDrawingBoardComponent {
     const graha = (label?.getAttribute('data-graha') as Graha | undefined) ?? null;
     if (graha !== this.hoveredGraha()) {
       this.grahaHovered.emit(graha);
+    }
+    // Off a planet, the sign under the pointer shows the aspects coming into it (only when planets are shown).
+    const rasi =
+      graha || !this.chart().grahas.length
+        ? null
+        : toSignPoint(this.cells(), this.toChartPoint(event)).rasi;
+    if (rasi !== this.hoveredRasi()) {
+      this.rasiHovered.emit(rasi);
     }
   }
 

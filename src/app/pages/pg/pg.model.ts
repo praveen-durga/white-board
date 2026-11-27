@@ -37,7 +37,8 @@ export type WbSudarshanaHotspot = {
   y: number;
 };
 
-export type WbHoverAspect = { id: number; graha: Graha; ring: number; house: number };
+// graha = the hovered planet (its outgoing aspects); null = the hovered sign itself (aspects coming into it).
+export type WbHoverAspect = { id: number; graha: Graha | null; ring: number; house: number };
 
 export type WbChartRendered = {
   href: string;
@@ -107,6 +108,11 @@ export type PgCell = {
 export type PgAspect = { rasi: number; aspect: number; grahas: Graha[] };
 
 export type PgAspectView = { graha: Graha; fromRasi: number; aspects: PgAspect[] };
+
+// A planet aspecting a target cell: from = the planet's cell index, aspect = the count from it (inclusive).
+export type PgIncomingAspect = { graha: Graha; from: number; aspect: number };
+
+export type RenderedIncomingAspect = RenderedAspect & { key: string; text: string };
 
 export type RenderedAspect = {
   aspect: number;
